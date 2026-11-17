@@ -1,0 +1,28 @@
+diff --git a/node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js b/node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js
+index 244074b..19f9722 100644
+--- a/node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js
+@@ -1867,7 +1867,10 @@ function requestHeaders(configured, options, baseURL, prepare) {
+ 			...options.purpose === void 0 ? {} : { purpose: options.purpose }
+ 		});
+ 		const headers = prepare === void 0 ? initial : prepare(request, initial);
+-		for (const [name, value] of Object.entries(attributionHeaders())) headers.set(name, value);
++		for (const [name, value] of Object.entries(attributionHeaders())) {
++			if (name.toLowerCase() === "user-agent" && headers.has(name)) continue;
++			headers.set(name, value);
++		}
+ 		return Object.fromEntries(headers);
+ 	} catch (error) {
+ 		throw new LlmError(`pi-ai request header preparation failed for provider "${options.provider}": ${requestHeaderDiagnostic(error)}`, "REQUEST_HEADERS", { cause: error });
+@@ -2463,7 +2466,10 @@ async function discoverModels(request, storedProfile) {
+ 			headers.set("anthropic-version", ANTHROPIC_VERSION);
+ 			if (apiKey !== void 0) headers.set("x-api-key", apiKey);
+ 		} else if (apiKey !== void 0) headers.set("authorization", `Bearer ${apiKey}`);
+-		for (const [name, value] of Object.entries(attributionHeaders())) headers.set(name, value);
++		for (const [name, value] of Object.entries(attributionHeaders())) {
++			if (name.toLowerCase() === "user-agent" && headers.has(name)) continue;
++			headers.set(name, value);
++		}
+ 		response = await fetch(url, {
+ 			method: "GET",
+ 			headers,

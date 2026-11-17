@@ -155,8 +155,8 @@
     "ohos-attachment-diagnostic.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js": {
-          "after": "083ff174256a8166633c1f655720aaab897368ea5e1a553cdcec7b0fa329202a",
-          "before": "71bef2194ebc72d9d86a0ce3a0fe24345b808208a4752fb077f71cf6603b04aa"
+          "after": "c6835f1af42f24b5956a7300643c5181d59cf8b4610e742ad1a8b597bdbdf520",
+          "before": "4b702c844bb03913d11562a29246d82a270d46e0902a5b41b4e8c53a43632dbf"
         }
       }
     },
@@ -295,16 +295,16 @@
     "ohos-piai-empty-models.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js": {
-          "after": "25f7f6eb315754950170bd26ef0710fce3cf48d3046647c8eed9f64e7a72ab0b",
-          "before": "083ff174256a8166633c1f655720aaab897368ea5e1a553cdcec7b0fa329202a"
+          "after": "a13f43c144fb20ff06ea14d2f4f67bf5f2dad41ace402b7022a318f804700206",
+          "before": "c6835f1af42f24b5956a7300643c5181d59cf8b4610e742ad1a8b597bdbdf520"
         }
       }
     },
     "ohos-piai-text-preabort.diff": {
       "0.2.2-rc.1": {
         "node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js": {
-          "after": "762e49300daac811c36184c9cb8ba44460de7fb5bacca06bc0c1b377cb192be1",
-          "before": "25f7f6eb315754950170bd26ef0710fce3cf48d3046647c8eed9f64e7a72ab0b"
+          "after": "26e3313356eb86d2f5a5e2a9c908a6aa10709ebdcd9049a4c672b15b6e95054a",
+          "before": "a13f43c144fb20ff06ea14d2f4f67bf5f2dad41ace402b7022a318f804700206"
         }
       }
     },
@@ -545,6 +545,14 @@
         "node_modules/@deepseek-ai/dsh-llm/lib/types/types.d.ts": {
           "after": "29ea5d2268eee5da763bd324be45b661bd5bb0b41b78d76a44b902a231ce9510",
           "before": "456d2f417065b73ea3308437c0c23cb12c895d371a6e669ec8610d032a5ff6e3"
+        }
+      }
+    },
+    "provider-user-agent.diff": {
+      "0.2.2-rc.1": {
+        "node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js": {
+          "after": "4b702c844bb03913d11562a29246d82a270d46e0902a5b41b4e8c53a43632dbf",
+          "before": "71bef2194ebc72d9d86a0ce3a0fe24345b808208a4752fb077f71cf6603b04aa"
         }
       }
     },
@@ -2466,6 +2474,7 @@
       "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-phone-run-end-live-retry.diff",
       "terminal-job-cancel.diff",
       "provider-discovery-headers.diff",
+      "provider-user-agent.diff",
       "session-format-error.diff",
       "session-queue-steer-deletion.diff",
       "webserver-resource-abort.diff",
@@ -2618,6 +2627,7 @@
       "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-phone-run-end-live-retry.diff",
       "terminal-job-cancel.diff",
       "provider-discovery-headers.diff",
+      "provider-user-agent.diff",
       "session-format-error.diff",
       "session-queue-steer-deletion.diff",
       "webserver-resource-abort.diff",

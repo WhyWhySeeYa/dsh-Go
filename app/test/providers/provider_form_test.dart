@@ -216,7 +216,7 @@ void main() {
   });
 
   group('request headers', () {
-    testWidgets('stored reserved headers stay read-only while an adjacent header changes', (tester) async {
+    testWidgets('a stored user-agent fills the dedicated field and an adjacent header still saves', (tester) async {
       const profile = ProviderProfile(
         route: 'custom-reserved-header',
         api: 'openai-completions',
@@ -231,17 +231,24 @@ void main() {
       tester.view.physicalSize = const Size(640, 1688);
       await tester.pump();
       await _openHeaders(tester);
-      await _tapVisible(tester, _headerField('value', 1));
-      await tester.enterText(_headerField('value', 1), 'new-session');
+      // The stored spelling moves into the dedicated field; the generic rows
+      // no longer carry a user-agent entry at all.
+      expect(
+        tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
+        'legacy-agent',
+      );
+      expect(find.byKey(_headerField('name', 1)), findsNothing);
+      await _tapVisible(tester, _headerField('value'));
+      await tester.enterText(_headerField('value'), 'new-session');
       await _tapVisible(tester, find.text('获取模型'));
-      expect(backend.callNames, contains('discover'), reason: 'an untouched reserved row must not reject its neighbor');
-      expect(backend.calls.last.$2['headers'], {'UsEr-AgEnT': 'legacy-agent', 'x-opencode-session': 'new-session'});
+      expect(backend.callNames, contains('discover'));
+      expect(backend.calls.last.$2['headers'], {'x-opencode-session': 'new-session', 'User-Agent': 'legacy-agent'});
       await tester.tap(find.text('保存'));
       await settle(tester);
-      expect(backend.profiles.single.headers, {'UsEr-AgEnT': 'legacy-agent', 'x-opencode-session': 'new-session'});
+      expect(backend.profiles.single.headers, {'x-opencode-session': 'new-session', 'User-Agent': 'legacy-agent'});
     });
 
-    testWidgets('a stored reserved row exposes neither text editing nor deletion', (tester) async {
+    testWidgets('an edited user-agent replaces the stored one without duplicating it', (tester) async {
       const profile = ProviderProfile(
         route: 'custom-reserved-header',
         api: 'openai-completions',
@@ -249,27 +256,16 @@ void main() {
         models: [ProviderModelSpec(id: 'm1')],
         headers: {'UsEr-AgEnT': 'legacy-agent', 'x-opencode-session': 'session-1'},
       );
-      await _open(
-        tester,
-        FakeProviderBackend(profiles: const [profile]),
-        existing: CustomProvider.fromProfile(profile),
-      );
+      final backend = FakeProviderBackend(profiles: const [profile]);
+      await _open(tester, backend, existing: CustomProvider.fromProfile(profile));
       await _openHeaders(tester);
-      for (final field in ['name', 'value']) {
-        final input = tester.widget<TextField>(
-          find.descendant(of: _headerField(field), matching: find.byType(TextField)),
-        );
-        expect(input.readOnly, isTrue, reason: field);
-        expect(tester.widget<TextFormField>(_headerField(field)).onChanged, isNull, reason: field);
-      }
-      final delete = tester.widget<TextButton>(
-        find.ancestor(of: find.text('删除').first, matching: find.byType(TextButton)),
-      );
-      expect(delete.onPressed, isNull);
-      final normal = tester.widget<TextField>(
-        find.descendant(of: _headerField('value', 1), matching: find.byType(TextField)),
-      );
-      expect(normal.readOnly, isFalse);
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent')));
+      await tester.enterText(find.byKey(const ValueKey('provider-user-agent')), 'channel-agent/1.0');
+      await _tapVisible(tester, find.text('获取模型'));
+      expect(backend.calls.last.$2['headers'], {'x-opencode-session': 'session-1', 'User-Agent': 'channel-agent/1.0'});
+      await tester.tap(find.text('保存'));
+      await settle(tester);
+      expect(backend.profiles.single.headers, {'x-opencode-session': 'session-1', 'User-Agent': 'channel-agent/1.0'});
     });
 
     testWidgets('renaming an ordinary header to a reserved name is rejected and remains correctable', (tester) async {
@@ -354,7 +350,11 @@ void main() {
       final backend = FakeProviderBackend(profiles: const [profile]);
       await _open(tester, backend, existing: CustomProvider.fromProfile(profile));
       await _openHeaders(tester);
-      expect(tester.widget<TextFormField>(_headerField('name')).initialValue, ' User-Agent ');
+      expect(
+        tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
+        'legacy',
+      );
+      expect(tester.widget<TextFormField>(_headerField('name')).initialValue, 'X-Legacy');
       await _tapVisible(tester, find.text('获取模型'));
       expect(backend.calls.last.$2.containsKey('headers'), isFalse);
       await tester.tap(find.text('保存'));

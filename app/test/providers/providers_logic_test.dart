@@ -562,6 +562,24 @@ void main() {
       expect(const AppSettings().hasModelAccess, isFalse);
     });
   });
+
+  group('channel user-agent', () {
+    test('merges case-insensitively, drops blanks and leaves auth alone', () {
+      expect(
+        mergeProviderHeaders(
+          {'user-agent': 'old-a', 'UsEr-AgEnT': 'old-b', 'authorization': 'Bearer k', 'x-trace': 't'},
+          'channel-agent/1.0',
+        ),
+        {'authorization': 'Bearer k', 'x-trace': 't', 'User-Agent': 'channel-agent/1.0'},
+      );
+      // Blank means "engine default": every stored spelling is dropped.
+      expect(mergeProviderHeaders({'USER-AGENT': 'old', 'x': 'y'}, '   '), {'x': 'y'});
+      expect(providerUserAgentOf({' UsEr-AgEnT ': 'stored'}), 'stored');
+      expect(providerUserAgentOf({'x': 'y'}), '');
+      expect(providerUserAgentError('line\nbreak'), isNotNull);
+      expect(providerUserAgentError('codex_cli_rs/0.159.0 (Ubuntu 22.4.0; x86_64)'), isNull);
+    });
+  });
 }
 
 /// Settings that are loaded and touch nothing but the vault.

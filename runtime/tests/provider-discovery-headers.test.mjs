@@ -197,7 +197,7 @@ test('explicit draft headers replace stored keys and an empty list clears them f
 });
 
 for (const api of ['openai-completions', 'openai-responses', 'anthropic-messages']) {
-  test(`${api} retains controlled auth, version and attribution precedence`, async t => {
+  test(`${api} retains controlled auth and version, and honours a configured user-agent`, async t => {
     const f = await fixture(t);
     await f.discover({ baseURL: f.baseURL, api, apiKey: 'draft-key', headers: [
       { name: 'x-custom', value: 'visible' }, { name: 'authorization', value: 'ignored-bearer' },
@@ -217,8 +217,8 @@ for (const api of ['openai-completions', 'openai-responses', 'anthropic-messages
   });
 }
 
-test('stored custom headers reach actual inference and attribution still wins', async t => {
-  const f = await fixture(t, { headers: { 'x-opencode-session': 'saved-route', 'user-agent': 'ignored-agent' },
+test('stored custom headers reach actual inference and the configured user-agent wins', async t => {
+  const f = await fixture(t, { headers: { 'x-opencode-session': 'saved-route', 'user-agent': 'saved-agent' },
     requiredHeader: 'saved-route' });
   const chunks = await Array.fromAsync(f.adapter.stream({ provider: route, model: 'fixture-model',
     tools: [], messages: [{ role: 'user', content: [{ type: 'text', text: 'synthetic prompt' }] }] }));
@@ -226,8 +226,18 @@ test('stored custom headers reach actual inference and attribution still wins', 
   const sent = f.received.find(item => item.path === '/v1/chat/completions');
   assert(sent);
   assert.equal(sent.headers['x-opencode-session'], 'saved-route');
-  assert.equal(sent.headers['user-agent'], attributionHeaders()['user-agent']);
+  assert.equal(sent.headers['user-agent'], 'saved-agent');
   assert.equal(sent.headers.authorization, 'Bearer fixture-key');
+});
+
+test('without a configured user-agent, attribution still supplies the header', async t => {
+  const f = await fixture(t, { headers: { 'x-opencode-session': 'saved-route' }, requiredHeader: 'saved-route' });
+  const chunks = await Array.fromAsync(f.adapter.stream({ provider: route, model: 'fixture-model',
+    tools: [], messages: [{ role: 'user', content: [{ type: 'text', text: 'synthetic prompt' }] }] }));
+  assert.equal(chunks.at(-1).reason.kind, 'stop');
+  const sent = f.received.find(item => item.path === '/v1/chat/completions');
+  assert(sent);
+  assert.equal(sent.headers['user-agent'], attributionHeaders()['user-agent']);
 });
 
 test('malformed draft header fails before network and does not echo its value', async t => {
@@ -235,5 +245,8 @@ test('malformed draft header fails before network and does not echo its value', 
   await assert.rejects(f.discover({ baseURL: f.baseURL, apiKey: 'draft-key',
     headers: [{ name: 'x-route', value: 'synthetic\nprivate-value' }] }), error =>
     error.code === 'llm/model-discovery-rejected' && !error.message.includes('private-value'));
+  assert.equal(f.received.length, 0);
+});
+= 'llm/model-discovery-rejected' && !error.message.includes('private-value'));
   assert.equal(f.received.length, 0);
 });

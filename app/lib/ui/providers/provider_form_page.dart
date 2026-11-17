@@ -65,8 +65,14 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
   late List<ProviderModelSpec> _models = [...?widget.existing?.models];
   late final _headers = [
     for (final entry in (widget.existing?.headers ?? const <String, String>{}).entries)
-      _HeaderDraft(entry.key, entry.value, locked: isReservedProviderHeader(entry.key)),
+      // The dedicated User-Agent field owns this name; the generic rows never
+      // carry it, so saving cannot produce two spellings of the same header.
+      if (entry.key.trim().toLowerCase() != 'user-agent')
+        _HeaderDraft(entry.key, entry.value, locked: isReservedProviderHeader(entry.key)),
   ];
+  late final _userAgent = TextEditingController(
+    text: providerUserAgentOf(widget.existing?.headers ?? const <String, String>{}),
+  );
   bool _headersOpen = false;
 
   /// The provider being edited; set after a create whose key failed, so the
@@ -157,6 +163,7 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     _name.dispose();
     _baseUrl.dispose();
     _key.dispose();
+    _userAgent.dispose();
     super.dispose();
   }
 
@@ -463,6 +470,22 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                   open: _headersOpen,
                   child: FormFieldGroup(
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: FormFieldBlock(
+                          label: 'User-Agent',
+                          child: TextFormField(
+                            key: const ValueKey('provider-user-agent'),
+                            controller: _userAgent,
+                            enabled: !_saving,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            textInputAction: TextInputAction.next,
+                            onChanged: (_) => _editHeaders(() {}),
+                            decoration: InputDecoration(hintText: l10n.commonDefault),
+                          ),
+                        ),
+                      ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
@@ -972,4 +995,6 @@ class _CandidateRow extends StatelessWidget {
       ),
     );
   }
+}
+}
 }

@@ -1,0 +1,48 @@
+# 复用 iOS compile 的无签名构建，成功后把 IPA 发到 GitHub Release。
+name: iOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (empty = build-<run_number>)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    uses: ./.github/workflows/ios-compile.yml
+    with:
+      regression_only: false
+
+  release:
+    needs: compile
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: out
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -e
+          ls -lh out
+          tag="${INPUT_TAG:-build-${GITHUB_RUN_NUMBER}}"
+          notes="Unsigned iOS build from ${GITHUB_SHA} on $(date -u +%Y-%m-%dT%H:%M:%SZ). Sign it before installing."
+          gh release create "$tag" out/dsh-go-ios.ipa \
+            --title "dsh-Go iOS $tag" \
+            --notes "$notes" \
+            --prerelease \
+            --target "$GITHUB_SHA"

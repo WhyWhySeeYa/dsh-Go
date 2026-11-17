@@ -84,6 +84,9 @@ class CustomProvider {
   /// Extra request headers read back from the engine.
   final Map<String, String> headers;
 
+  /// This channel's own User-Agent override; empty keeps the engine default.
+  String get userAgent => providerUserAgentOf(headers);
+
   /// Credential reference the key lives under; null for a keyless route.
   final String? apiKeyEnv;
 
@@ -664,6 +667,45 @@ class ProviderActions {
     );
     _ref
       ..invalidate(customProvidersProvider)
+      ..invalidate(modelCatalogProvider);
+  }
+
+  /// Removes the route and, when no other route shares it, the key it named
+  /// (the official page does the same for keys it manages).
+  Future<void> delete(CustomProvider provider) async {
+    final backend = _backend;
+    final snapshot = _snapshot;
+    _ref.read(readListCredentialEpochProvider.notifier).advance();
+    await backend.remove(provider.id, expectedRevision: snapshot?.revision);
+    final ref = provider.apiKeyEnv;
+    final shared = snapshot?.providers.any((p) => p.id != provider.id && p.apiKeyEnv == ref) ?? false;
+    if (ref != null && !shared && snapshot?.credentials[ref]?.writable != false) {
+      try {
+        await backend.clearKey(ref);
+      } catch (_) {
+        // The route is gone; a leftover credential is harmless.
+      }
+    }
+    if (backend.isLocal) {
+      try {
+        await _ref.read(settingsProvider.notifier).removeProviderKey(provider.id);
+      } catch (_) {}
+    }
+    _ref
+      ..invalidate(customProvidersProvider)
+      ..invalidate(modelCatalogProvider);
+  }
+
+  /// A cheap health check: the endpoint's model listing with the stored key
+  /// (`GET /models`, no tokens spent). Returns how many models it lists.
+  Future<int> test(CustomProvider provider) async {
+    final models = await _backend.discover(provider: provider.id, baseUrl: provider.baseUrl, api: provider.api);
+    return models.length;
+  }
+}
+
+final providerActionsProvider = Provider<ProviderActions>(ProviderActions.new);
+stomProvidersProvider)
       ..invalidate(modelCatalogProvider);
   }
 
