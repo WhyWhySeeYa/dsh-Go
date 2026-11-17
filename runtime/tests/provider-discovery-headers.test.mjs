@@ -207,7 +207,9 @@ for (const api of ['openai-completions', 'openai-responses', 'anthropic-messages
     const sent = f.received[0].headers;
     assert.equal(sent['x-custom'], 'visible');
     assert.equal(sent.accept, 'application/json');
-    assert.equal(sent['user-agent'], attributionHeaders()['user-agent']);
+    // A configured user-agent overrides attribution for this request only;
+    // every other attribution header and the protocol auth stay controlled.
+    assert.equal(sent['user-agent'], 'ignored-agent');
     if (api === 'anthropic-messages') {
       assert.equal(sent['x-api-key'], 'draft-key');
       assert.equal(sent['anthropic-version'], '2023-06-01');
@@ -245,8 +247,5 @@ test('malformed draft header fails before network and does not echo its value', 
   await assert.rejects(f.discover({ baseURL: f.baseURL, apiKey: 'draft-key',
     headers: [{ name: 'x-route', value: 'synthetic\nprivate-value' }] }), error =>
     error.code === 'llm/model-discovery-rejected' && !error.message.includes('private-value'));
-  assert.equal(f.received.length, 0);
-});
-= 'llm/model-discovery-rejected' && !error.message.includes('private-value'));
   assert.equal(f.received.length, 0);
 });

@@ -234,8 +234,48 @@ class ProviderDraft {
 
 // ── Validation ───────────────────────────────────────────────────────────────
 
-/// The engine supplies request attribution; the form does not edit it.
+/// The engine supplies request attribution; the generic header rows do not
+/// edit it. A channel's own override goes through [providerUserAgentHeader]
+/// and the dedicated form field instead.
 bool isReservedProviderHeader(String name) => name.toLowerCase() == 'user-agent';
+
+/// Header name the channel's dedicated User-Agent field owns.
+const String providerUserAgentHeader = 'User-Agent';
+
+/// The stored User-Agent of [headers], matched case-insensitively.
+String providerUserAgentOf(Map<String, String> headers) {
+  for (final entry in headers.entries) {
+    if (entry.key.trim().toLowerCase() == 'user-agent') return entry.value;
+  }
+  return '';
+}
+
+/// [headers] with every case variant of `User-Agent` dropped and, when
+/// [userAgent] is not blank, exactly one canonical entry added.
+///
+/// The engine builds a case-insensitive `Headers` from this map: two spellings
+/// of the same name would reach the endpoint as one header with both values
+/// joined by `, `. Merging here keeps the stored profile and every discovery
+/// request at one value per name. Authentication headers are untouched.
+Map<String, String> mergeProviderHeaders(Map<String, String> headers, String userAgent) {
+  final merged = <String, String>{
+    for (final entry in headers.entries)
+      if (entry.key.trim().toLowerCase() != 'user-agent') entry.key: entry.value,
+  };
+  final ua = userAgent.trim();
+  if (ua.isNotEmpty) merged[providerUserAgentHeader] = ua;
+  return merged;
+}
+
+/// The dedicated field accepts the same bytes as a header value.
+String? providerUserAgentError(String value) {
+  final ua = value.trim();
+  if (ua.isEmpty) return null;
+  if (ua.codeUnits.any((unit) => unit != 9 && (unit < 32 || unit == 127 || unit > 255))) {
+    return appL10n.engineProviderHeaderInvalidValue;
+  }
+  return null;
+}
 
 /// HTTP field names and values accepted by the engine's Fetch client.
 /// Empty rows are ignored; empty values are valid. Names are case-insensitive.
@@ -667,45 +707,6 @@ class ProviderActions {
     );
     _ref
       ..invalidate(customProvidersProvider)
-      ..invalidate(modelCatalogProvider);
-  }
-
-  /// Removes the route and, when no other route shares it, the key it named
-  /// (the official page does the same for keys it manages).
-  Future<void> delete(CustomProvider provider) async {
-    final backend = _backend;
-    final snapshot = _snapshot;
-    _ref.read(readListCredentialEpochProvider.notifier).advance();
-    await backend.remove(provider.id, expectedRevision: snapshot?.revision);
-    final ref = provider.apiKeyEnv;
-    final shared = snapshot?.providers.any((p) => p.id != provider.id && p.apiKeyEnv == ref) ?? false;
-    if (ref != null && !shared && snapshot?.credentials[ref]?.writable != false) {
-      try {
-        await backend.clearKey(ref);
-      } catch (_) {
-        // The route is gone; a leftover credential is harmless.
-      }
-    }
-    if (backend.isLocal) {
-      try {
-        await _ref.read(settingsProvider.notifier).removeProviderKey(provider.id);
-      } catch (_) {}
-    }
-    _ref
-      ..invalidate(customProvidersProvider)
-      ..invalidate(modelCatalogProvider);
-  }
-
-  /// A cheap health check: the endpoint's model listing with the stored key
-  /// (`GET /models`, no tokens spent). Returns how many models it lists.
-  Future<int> test(CustomProvider provider) async {
-    final models = await _backend.discover(provider: provider.id, baseUrl: provider.baseUrl, api: provider.api);
-    return models.length;
-  }
-}
-
-final providerActionsProvider = Provider<ProviderActions>(ProviderActions.new);
-stomProvidersProvider)
       ..invalidate(modelCatalogProvider);
   }
 

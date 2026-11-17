@@ -107,18 +107,23 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
 
   String _headersSignature() => jsonEncode([
     for (final header in _headers) [header.name, header.value],
+    ['user-agent', _userAgent.text.trim()],
   ]);
 
   bool get _headersEdited =>
       _headersSignature() !=
       jsonEncode([
-        for (final entry in (_editing?.headers ?? const <String, String>{}).entries) [entry.key, entry.value],
+        for (final entry in (_editing?.headers ?? const <String, String>{}).entries)
+          if (entry.key.trim().toLowerCase() != 'user-agent') [entry.key, entry.value],
+        ['user-agent', providerUserAgentOf(_editing?.headers ?? const <String, String>{})],
       ]);
 
   String? _headersError() {
     // Existing settings can come from a newer or differently configured Host.
     // An unrelated edit must not rewrite or reject those stored fields.
     if (!_headersEdited) return null;
+    final userAgentError = providerUserAgentError(_userAgent.text);
+    if (userAgentError != null) return userAgentError;
     return providerHeadersError([
       for (final header in _headers)
         if (!header.locked) MapEntry(header.name, header.value),
@@ -127,10 +132,10 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
 
   Map<String, String>? _headersForRequest() {
     if (!_headersEdited) return null;
-    final headers = {
+    final headers = mergeProviderHeaders({
       for (final header in _headers)
         if (header.name.trim().isNotEmpty) (header.locked ? header.name : header.name.trim()): header.value,
-    };
+    }, _userAgent.text);
     return mapEquals(headers, _editing?.headers ?? const {}) ? null : headers;
   }
 
@@ -995,6 +1000,4 @@ class _CandidateRow extends StatelessWidget {
       ),
     );
   }
-}
-}
 }
