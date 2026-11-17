@@ -479,15 +479,20 @@ jobs:
           if-no-files-found: ignore
 
       - name: Archive as for TestFlight, and look inside
+        id: archive
         if: ${{ !inputs.regression_only && !cancelled() && steps.prepare.outcome == 'success' }}
         run: bash tooling/ios/check-archive.sh
 
+      - name: Name the unsigned iOS IPA
+        if: ${{ !inputs.regression_only && steps.archive.outcome == 'success' }}
+        run: cp "$RUNNER_TEMP/DSH-Go-unsigned.ipa" "$RUNNER_TEMP/dsh-go-ios.ipa"
+
       - name: Keep the unsigned app
-        if: ${{ !inputs.regression_only && !cancelled() && steps.prepare.outcome == 'success' }}
+        if: ${{ !inputs.regression_only && steps.archive.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ios-unsigned-ipa
-          path: ${{ runner.temp }}/DSH-Go-unsigned.ipa
+          path: ${{ runner.temp }}/dsh-go-ios.ipa
           if-no-files-found: ignore
           compression-level: 0
           retention-days: 14
