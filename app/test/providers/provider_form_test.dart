@@ -237,7 +237,7 @@ void main() {
         tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
         'legacy-agent',
       );
-      expect(find.byKey(_headerField('name', 1)), findsNothing);
+      expect(_headerField('name', 1), findsNothing);
       await _tapVisible(tester, _headerField('value'));
       await tester.enterText(_headerField('value'), 'new-session');
       await _tapVisible(tester, find.text('获取模型'));
