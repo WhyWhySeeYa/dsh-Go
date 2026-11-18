@@ -139,6 +139,116 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     return mapEquals(headers, _editing?.headers ?? const {}) ? null : headers;
   }
 
+  /// Parses the JSON editor's text into headers, reusing the same rules as the
+  /// row editor: token names, no reserved names, no case-insensitive duplicates,
+  /// single-line Latin-1 values.
+  ({Map<String, String>? headers, String? error}) _parseHeadersJson(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return (headers: const <String, String>{}, error: null);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(trimmed);
+    } catch (_) {
+      return (headers: null, error: context.l10n.engineFieldInvalidFormat);
+    }
+    if (decoded is! Map) {
+      return (headers: null, error: context.l10n.engineFieldInvalidFormat);
+    }
+    final headers = <String, String>{};
+    final names = <String>{};
+    for (final entry in decoded.entries) {
+      final name = entry.key.toString().trim();
+      final value = entry.value;
+      if (!RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$").hasMatch(name)) {
+        return (headers: null, error: context.l10n.engineProviderHeaderInvalidName);
+      }
+      if (isReservedProviderHeader(name)) {
+        return (headers: null, error: context.l10n.engineProviderHeaderReserved);
+      }
+      if (!names.add(name.toLowerCase())) {
+        return (headers: null, error: context.l10n.engineProviderHeaderDuplicate);
+      }
+      if (value is! String ||
+          value.codeUnits.any((unit) => unit != 9 && (unit < 32 || unit == 127 || unit > 255))) {
+        return (headers: null, error: context.l10n.engineProviderHeaderInvalidValue);
+      }
+      headers[name] = value;
+    }
+    return (headers: headers, error: null);
+  }
+
+  /// Edits the whole header map as JSON. The User-Agent stays in its own field,
+  /// so a `user-agent` key here is rejected by the reserved-name rule.
+  Future<void> _editHeadersAsJson() async {
+    final current = <String, String>{
+      for (final header in _headers)
+        if (header.name.trim().isNotEmpty) header.name.trim(): header.value,
+    };
+    final controller = TextEditingController(
+      text: const JsonEncoder.withIndent('  ').convert(current),
+    );
+    String? error;
+    try {
+      await showDialog<bool>(
+        context: context,
+        builder: (dialog) => StatefulBuilder(
+          builder: (dialog, setDialogState) => AlertDialog(
+            title: const Text('JSON'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    key: const ValueKey('provider-headers-json'),
+                    controller: controller,
+                    minLines: 6,
+                    maxLines: 14,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    decoration: const InputDecoration(hintText: '{"X-Header": "value"}'),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(error!, style: TextStyle(color: Theme.of(dialog).colorScheme.error)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialog, false),
+                child: Text(context.l10n.commonCancel),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final parsed = _parseHeadersJson(controller.text);
+                  final parsedError = parsed.error;
+                  if (parsedError != null) {
+                    setDialogState(() => error = parsedError);
+                    return;
+                  }
+                  _editHeaders(() {
+                    _headers
+                      ..clear()
+                      ..addAll([
+                        for (final entry in parsed.headers!.entries)
+                          _HeaderDraft(entry.key, entry.value),
+                      ]);
+                  });
+                  Navigator.pop(dialog, true);
+                },
+                child: Text(context.l10n.commonSave),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
   void _editHeaders(VoidCallback edit) => setState(() {
     edit();
     _errors = {..._errors}..remove(_F.headers);
@@ -547,10 +657,23 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _saving ? null : () => _editHeaders(() => _headers.add(_HeaderDraft('', ''))),
-                            icon: const Icon(AppIcons.add, size: 18),
-                            label: Text(l10n.engineProviderHeaderAdd),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              TextButton.icon(
+                                onPressed: _saving
+                                    ? null
+                                    : () => _editHeaders(() => _headers.add(_HeaderDraft('', ''))),
+                                icon: const Icon(AppIcons.add, size: 18),
+                                label: Text(l10n.engineProviderHeaderAdd),
+                              ),
+                              TextButton.icon(
+                                onPressed: _saving ? null : _editHeadersAsJson,
+                                icon: const Icon(AppIcons.code, size: 18),
+                                label: const Text('JSON'),
+                              ),
+                            ],
                           ),
                         ),
                       ),

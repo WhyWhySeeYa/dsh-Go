@@ -396,6 +396,33 @@ void main() {
       expect(input.enableSuggestions, isTrue);
     });
 
+    testWidgets('the JSON editor replaces the header rows', (tester) async {
+      final backend = FakeProviderBackend(profiles: const [_headerProfile]);
+      await _open(tester, backend, existing: CustomProvider.fromProfile(_headerProfile));
+      await _openHeaders(tester);
+      await _tapVisible(tester, find.text('JSON'));
+      await tester.enterText(
+        find.byKey(const ValueKey('provider-headers-json')),
+        '{"x-one": "1", "x-two": "2"}',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+      await settle(tester);
+      await _tapVisible(tester, find.text('获取模型'));
+      expect(backend.calls.last.$2['headers'], {'x-one': '1', 'x-two': '2'});
+    });
+
+    testWidgets('invalid JSON stays in the editor with an error', (tester) async {
+      final backend = FakeProviderBackend(profiles: const [_headerProfile]);
+      await _open(tester, backend, existing: CustomProvider.fromProfile(_headerProfile));
+      await _openHeaders(tester);
+      await _tapVisible(tester, find.text('JSON'));
+      await tester.enterText(find.byKey(const ValueKey('provider-headers-json')), '{bad');
+      await tester.tap(find.widgetWithText(FilledButton, '保存').last);
+      await settle(tester);
+      expect(find.text('格式不对'), findsOneWidget);
+      expect(find.byKey(const ValueKey('provider-headers-json')), findsOneWidget);
+    });
+
     for (final failure in [false, true]) {
       testWidgets('late discovery ${failure ? 'failure' : 'success'} belongs to the header snapshot', (tester) async {
         final backend = _DelayedDiscovery();
