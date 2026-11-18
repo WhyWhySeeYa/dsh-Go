@@ -210,6 +210,7 @@ private final class SilentAudioKeepAlive {
   }
 }
 
+@available(iOS 16.1, *)
 @MainActor
 final class RunBackground: NSObject, CLLocationManagerDelegate {
   static let shared = RunBackground()

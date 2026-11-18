@@ -596,7 +596,9 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
         self.phoneTaskRunning = active
         let running = self.localTurnRunning || active
         self.continued.update(running: running)
-        RunBackground.shared.update(running: running)
+        if #available(iOS 16.1, *) {
+          RunBackground.shared.update(running: running)
+        }
       }
       IOSPetOverlay.shared.onKeepingAliveChanged = { [weak self] active in
         self?.queue.async { [weak self] in
@@ -703,8 +705,10 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
             localTurnRunning = running
             let anyRunning = running || phoneTaskRunning
             continued.update(running: anyRunning)
-            MainActor.assumeIsolated {
-              RunBackground.shared.update(running: anyRunning)
+            if #available(iOS 16.1, *) {
+              MainActor.assumeIsolated {
+                RunBackground.shared.update(running: anyRunning)
+              }
             }
           }
           reply(nil)
