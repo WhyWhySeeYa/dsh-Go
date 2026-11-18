@@ -203,6 +203,10 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
   String _withV1(String url) {
     final trimmed = url.replaceAll(RegExp(r'/+$'), '');
     if (!_appendV1 || trimmed.endsWith('/v1')) return trimmed;
+    // Only a root address gets the suffix: a base that already carries a path
+    // (…/api/v3, …/Tenant) is the endpoint the user means.
+    final path = Uri.tryParse(trimmed)?.path ?? '';
+    if (path.isNotEmpty && path != '/') return trimmed;
     return '$trimmed/v1';
   }
   bool get _isEdit => _editing != null;
@@ -452,8 +456,13 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
           .discover(api: api, baseUrl: url, apiKey: key, existingId: _editing?.id, headers: headers);
       if (!mounted || !isCurrent()) return;
       if (result.baseUrl != url) {
-        _baseUrl.text = _withoutV1(result.baseUrl);
-        setState(() => _baseUrlNote = context.l10n.engineProviderCompletedUrl(result.baseUrl));
+        setState(() {
+          // Discovery fell back to /v1: keep the field on the root and let the
+          // switch carry the suffix into the saved profile.
+          _appendV1 = _endsWithV1(result.baseUrl);
+          _baseUrl.text = _withoutV1(result.baseUrl);
+          _baseUrlNote = context.l10n.engineProviderCompletedUrl(result.baseUrl);
+        });
       }
       // Keep pasted endpoints intact: saving must normalize the original input
       // once, not strip a second suffix from discovery's normalized base.

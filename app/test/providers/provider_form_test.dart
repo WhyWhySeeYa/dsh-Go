@@ -551,7 +551,7 @@ void main() {
     testWidgets('the protocol switches the Base URL placeholder; no helper lines', (tester) async {
       await _open(tester, FakeProviderBackend());
       String? hint() => tester.widget<TextField>(_field('Base URL')).decoration!.hintText;
-      expect(hint(), 'https://api.example.com/v1');
+      expect(hint(), 'https://api.example.com');
       await tester.tap(find.text('Anthropic'));
       await settle(tester);
       expect(hint(), 'https://api.example.com');
@@ -663,7 +663,11 @@ void main() {
       final keyLabel = tester.getRect(find.text('API Key'));
       expect(note.top, greaterThan(field.bottom));
       expect(note.bottom, lessThan(keyLabel.top));
-      expect(tester.widget<TextField>(_field('Base URL')).controller!.text, 'https://gw.example.com/v1');
+      expect(tester.widget<TextField>(_field('Base URL')).controller!.text, 'https://gw.example.com');
+      expect(
+        tester.widget<Switch>(find.byKey(const ValueKey('provider-append-v1'))).value,
+        isTrue,
+      );
       // Editing the URL again drops it.
       await _type(tester, 'Base URL', 'https://gw.example.com/v2');
       expect(find.textContaining('已补全为'), findsNothing);
