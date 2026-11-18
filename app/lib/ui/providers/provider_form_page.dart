@@ -79,6 +79,77 @@ const Map<String, String> _claudeCodeUserAgentHeaders = {
   'Anthropic-Dangerous-Direct-Browser-Access': 'true',
 };
 
+/// Owns the JSON editor's controller so it outlives the dialog's exit
+/// animation; disposing it in the caller rebuilt a dead TextField.
+class _HeadersJsonDialog extends StatefulWidget {
+  const _HeadersJsonDialog({required this.initial, required this.parse});
+
+  final Map<String, String> initial;
+  final ({Map<String, String>? headers, String? error}) Function(String) parse;
+
+  @override
+  State<_HeadersJsonDialog> createState() => _HeadersJsonDialogState();
+}
+
+class _HeadersJsonDialogState extends State<_HeadersJsonDialog> {
+  late final _controller = TextEditingController(
+    text: const JsonEncoder.withIndent('  ').convert(widget.initial),
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('JSON'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const ValueKey('provider-headers-json'),
+              controller: _controller,
+              minLines: 6,
+              maxLines: 14,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              decoration: const InputDecoration(hintText: '{"X-Header": "value"}'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final parsed = widget.parse(_controller.text);
+            final error = parsed.error;
+            if (error != null) {
+              setState(() => _error = error);
+              return;
+            }
+            Navigator.pop(context, parsed.headers);
+          },
+          child: Text(context.l10n.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldPaste<ProviderFormPage> {
   late final _name = TextEditingController(text: widget.existing?.displayName ?? '');
   late final _baseUrl = TextEditingController(text: _withoutV1(widget.existing?.baseUrl ?? ''));
@@ -222,96 +293,15 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
       for (final header in _headers)
         if (header.name.trim().isNotEmpty) header.name.trim(): header.value,
     };
-    final controller = TextEditingController(
-      text: const JsonEncoder.withIndent('  ').convert(current),
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (_) => _HeadersJsonDialog(initial: current, parse: _parseHeadersJson),
     );
-    String? error;
-    try {
-      await showDialog<bool>(
-        context: context,
-        builder: (dialog) => StatefulBuilder(
-          builder: (dialog, setDialogState) => AlertDialog(
-            title: const Text('JSON'),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    key: const ValueKey('provider-headers-json'),
-                    controller: controller,
-                    minLines: 6,
-                    maxLines: 14,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                    decoration: const InputDecoration(hintText: '{"X-Header": "value"}'),
-                  ),
-                  if (error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(error!, style: TextStyle(color: Theme.of(dialog).colorScheme.error)),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialog, false),
-                child: Text(context.l10n.commonCancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final parsed = _parseHeadersJson(controller.text);
-                  final parsedError = parsed.error;
-                  if (parsedError != null) {
-                    setDialogState(() => error = parsedError);
-                    return;
-                  }
-                  _editHeaders(() {
-                    _headers
-                      ..clear()
-                      ..addAll([
-                        for (final entry in parsed.headers!.entries)
-                          _HeaderDraft(entry.key, entry.value),
-                      ]);
-                  });
-                  Navigator.pop(dialog, true);
-                },
-                child: Text(context.l10n.commonSave),
-              ),
-            ],
-          ),
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
-  }
-
-  /// A UUID-shaped value for the engine-fingerprint headers; the relays only
-  /// require a non-empty, well-formed value.
-  static String _randomUuid() {
-    final random = Random.secure();
-    String hex(int length) =>
-        List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
-    return '${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}';
-  }
-
-  /// Fills the User-Agent field and merges the preset's headers into the rows,
-  /// updating a row with the same name (case-insensitive) instead of adding a
-  /// duplicate.
-  void _applyUserAgentPreset(String userAgent, Map<String, String> headers) {
+    if (result == null || !mounted) return;
     _editHeaders(() {
-      _userAgent.text = userAgent;
-      for (final entry in headers.entries) {
-        final index = _headers.indexWhere(
-          (header) => header.name.trim().toLowerCase() == entry.key.toLowerCase(),
-        );
-        if (index >= 0) {
-          _headers[index].value = entry.value;
-        } else {
-          _headers.add(_HeaderDraft(entry.key, entry.value));
-        }
-      }
+      _headers
+        ..clear()
+        ..addAll([for (final entry in result.entries) _HeaderDraft(entry.key, entry.value)]);
     });
   }
 
