@@ -11,7 +11,10 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>location</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -175,6 +178,8 @@
 	<string>Looks up or adds contacts when you approve a request from the on-device engine.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Reads your location once when you approve a request from the on-device engine.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Keeps a running conversation going while the app is in the background.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Opens the calendar editor when you approve adding an event.</string>
 	<key>NSMicrophoneUsageDescription</key>

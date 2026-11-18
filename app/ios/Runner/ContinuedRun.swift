@@ -1,4 +1,6 @@
+import ActivityKit
 import BackgroundTasks
+import CoreLocation
 import UIKit
 
 /// Keeps a turn the user started going after they leave the app, where the system allows it:
@@ -124,5 +126,102 @@ final class ContinuedRun {
     task = nil
     running.setTaskCompleted(success: success)
     onChange?(false)
+  }
+}
+
+
+// MARK: - Background run: location keep-alive + Live Activity
+
+/// Keeps a running turn alive after the app leaves the foreground: background
+/// location updates keep the process scheduled, and a Live Activity shows the
+/// turn on the Lock Screen and in the Dynamic Island.
+///
+/// Location needs `location` in UIBackgroundModes and an Always authorization;
+/// without it the app behaves exactly as before and the engine pauses when the
+/// system suspends it. Main thread only.
+@MainActor
+final class RunBackground: NSObject, CLLocationManagerDelegate {
+  static let shared = RunBackground()
+
+  private let location = CLLocationManager()
+  private var activity: Activity<RunActivityAttributes>?
+  private var startedAt = Date()
+  private var wanted = false
+
+  override init() {
+    super.init()
+    location.delegate = self
+    location.desiredAccuracy = kCLLocationAccuracyThreeKilometers
+    location.distanceFilter = 500
+    location.pausesLocationUpdatesAutomatically = false
+    location.allowsBackgroundLocationUpdates = true
+  }
+
+  /// Called whenever the engine's turn state changes.
+  func update(running: Bool) {
+    guard running != wanted else { return }
+    wanted = running
+    if running {
+      startedAt = Date()
+      startLocation()
+      startActivity()
+    } else {
+      stopLocation()
+      endActivity()
+    }
+  }
+
+  private func startLocation() {
+    switch location.authorizationStatus {
+    case .authorizedAlways, .authorizedWhenInUse:
+      location.startUpdatingLocation()
+    case .notDetermined:
+      location.requestAlwaysAuthorization()
+    default:
+      // Denied or restricted: the Live Activity still runs, the engine pauses.
+      break
+    }
+  }
+
+  private func stopLocation() {
+    location.stopUpdatingLocation()
+  }
+
+  nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    let status = manager.authorizationStatus
+    Task { @MainActor in
+      if status == .authorizedAlways, self.wanted {
+        self.location.startUpdatingLocation()
+      }
+    }
+  }
+
+  private func startActivity() {
+    guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    let attributes = RunActivityAttributes(name: "DSH Go")
+    let state = RunActivityAttributes.ContentState(
+      title: String(localized: "Working"),
+      detail: String(localized: "This conversation is still going"),
+      startedAt: startedAt)
+    do {
+      activity = try Activity.request(
+        attributes: attributes,
+        content: .init(state: state, staleDate: nil),
+        pushType: nil)
+    } catch {
+      activity = nil
+    }
+  }
+
+  private func endActivity() {
+    guard let activity else { return }
+    self.activity = nil
+    let state = RunActivityAttributes.ContentState(
+      title: String(localized: "Done"),
+      detail: "",
+      startedAt: startedAt)
+    Task {
+      await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .default)
+    }
   }
 }

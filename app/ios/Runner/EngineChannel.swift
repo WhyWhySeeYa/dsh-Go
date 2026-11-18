@@ -594,7 +594,9 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
       IOSPhoneControl.shared.onTaskActivityChanged = { [weak self] active in
         guard let self else { return }
         self.phoneTaskRunning = active
-        self.continued.update(running: self.localTurnRunning || active)
+        let running = self.localTurnRunning || active
+        self.continued.update(running: running)
+        RunBackground.shared.update(running: running)
       }
       IOSPetOverlay.shared.onKeepingAliveChanged = { [weak self] active in
         self?.queue.async { [weak self] in
@@ -699,7 +701,11 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
           let running = arguments["running"] as? Bool ?? false
           DispatchQueue.main.async { [self] in
             localTurnRunning = running
-            continued.update(running: running || phoneTaskRunning)
+            let anyRunning = running || phoneTaskRunning
+            continued.update(running: anyRunning)
+            MainActor.assumeIsolated {
+              RunBackground.shared.update(running: anyRunning)
+            }
           }
           reply(nil)
         case "reset":

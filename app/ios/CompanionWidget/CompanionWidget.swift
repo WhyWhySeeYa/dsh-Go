@@ -1,3 +1,4 @@
+import ActivityKit
 import SwiftUI
 import WidgetKit
 
@@ -69,7 +70,6 @@ private struct CompanionView: View {
   }
 }
 
-@main
 struct DSHCompanionWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: CompanionSnapshotStore.kind, provider: CompanionProvider()) { entry in
@@ -78,5 +78,73 @@ struct DSHCompanionWidget: Widget {
     .configurationDisplayName("Companion · 伙伴小屋")
     .description("Your companion’s latest words and activity. 查看伙伴的状态，点按回到小屋。")
     .supportedFamilies([.systemSmall, .systemMedium])
+  }
+}
+
+
+/// The running turn on the Lock Screen and in the Dynamic Island. Shares
+/// `RunActivityAttributes` with the app, which starts and ends it.
+struct RunLiveActivityWidget: Widget {
+  var body: some WidgetConfiguration {
+    ActivityConfiguration(for: RunActivityAttributes.self) { context in
+      HStack(spacing: 12) {
+        Image(systemName: "bolt.fill")
+          .font(.title3)
+          .foregroundStyle(.tint)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(context.state.title).font(.headline).lineLimit(1)
+          if !context.state.detail.isEmpty {
+            Text(context.state.detail)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
+        }
+        Spacer(minLength: 0)
+        Text(context.state.startedAt, style: .timer)
+          .font(.system(.body, design: .monospaced))
+          .foregroundStyle(.secondary)
+      }
+      .padding(14)
+      .activityBackgroundTint(Color.black.opacity(0.55))
+      .activitySystemActionForegroundColor(.white)
+    } dynamicIsland: { context in
+      DynamicIsland {
+        DynamicIslandExpandedRegion(.leading) {
+          Image(systemName: "bolt.fill").foregroundStyle(.tint)
+        }
+        DynamicIslandExpandedRegion(.center) {
+          Text(context.state.title).font(.headline).lineLimit(1)
+        }
+        DynamicIslandExpandedRegion(.trailing) {
+          Text(context.state.startedAt, style: .timer)
+            .font(.caption)
+            .monospacedDigit()
+        }
+        DynamicIslandExpandedRegion(.bottom) {
+          Text(context.state.detail.isEmpty ? context.attributes.name : context.state.detail)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+      } compactLeading: {
+        Image(systemName: "bolt.fill").foregroundStyle(.tint)
+      } compactTrailing: {
+        Text(context.state.startedAt, style: .timer)
+          .font(.caption2)
+          .monospacedDigit()
+      } minimal: {
+        Image(systemName: "bolt.fill").foregroundStyle(.tint)
+      }
+      .keylineTint(.accentColor)
+    }
+  }
+}
+
+@main
+struct DSHCompanionWidgetBundle: WidgetBundle {
+  var body: some Widget {
+    DSHCompanionWidget()
+    RunLiveActivityWidget()
   }
 }
