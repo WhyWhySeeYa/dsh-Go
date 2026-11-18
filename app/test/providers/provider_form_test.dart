@@ -272,7 +272,10 @@ void main() {
       final backend = FakeProviderBackend(profiles: const [_headerProfile]);
       await _open(tester, backend, existing: CustomProvider.fromProfile(_headerProfile));
       await _openHeaders(tester);
-      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-codex')));
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-presets')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('provider-user-agent-codex')));
+      await tester.pumpAndSettle();
       expect(
         tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
         startsWith('codex_cli_rs/'),
@@ -281,7 +284,10 @@ void main() {
       final headers = backend.calls.last.$2['headers'] as Map;
       expect(headers['originator'], 'codex_cli_rs');
       expect(headers['x-codex-window-id'], isNotEmpty);
-      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-claude')));
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-presets')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('provider-user-agent-claude')));
+      await tester.pumpAndSettle();
       expect(
         tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
         startsWith('claude-cli/'),

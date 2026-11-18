@@ -527,6 +527,61 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
+                        child: PopupMenuButton<String>(
+                          key: const ValueKey('provider-user-agent-presets'),
+                          enabled: !_saving,
+                          onSelected: (value) {
+                            if (value == 'codex') {
+                              _applyUserAgentPreset(
+                                'codex_cli_rs/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
+                                {
+                                  ..._codexUserAgentHeaders,
+                                  'session_id': _randomUuid(),
+                                  'x-codex-window-id': _randomUuid(),
+                                  'x-codex-installation-id': _randomUuid(),
+                                },
+                              );
+                            } else {
+                              _applyUserAgentPreset(
+                                'claude-cli/2.1.280 (external, cli)',
+                                _claudeCodeUserAgentHeaders,
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'codex',
+                              key: ValueKey('provider-user-agent-codex'),
+                              child: Text('Codex CLI'),
+                            ),
+                            PopupMenuItem(
+                              value: 'claude',
+                              key: ValueKey('provider-user-agent-claude'),
+                              child: Text('Claude Code'),
+                            ),
+                          ],
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Theme.of(context).dividerColor),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${l10n.tavernPresets} · Codex CLI / Claude Code',
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
+                                ),
+                                Icon(AppIcons.expand, size: 18, color: colors.textTertiary),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
                         child: FormFieldBlock(
                           label: 'User-Agent',
                           child: TextFormField(
@@ -538,43 +593,6 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                             textInputAction: TextInputAction.next,
                             onChanged: (_) => _editHeaders(() {}),
                             decoration: InputDecoration(hintText: l10n.commonDefault),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton(
-                                key: const ValueKey('provider-user-agent-codex'),
-                                onPressed: _saving
-                                    ? null
-                                    : () => _applyUserAgentPreset(
-                                          'codex_cli_rs/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
-                                          {
-                                            ..._codexUserAgentHeaders,
-                                            'session_id': _randomUuid(),
-                                            'x-codex-window-id': _randomUuid(),
-                                            'x-codex-installation-id': _randomUuid(),
-                                          },
-                                        ),
-                                child: const Text('Codex CLI'),
-                              ),
-                              OutlinedButton(
-                                key: const ValueKey('provider-user-agent-claude'),
-                                onPressed: _saving
-                                    ? null
-                                    : () => _applyUserAgentPreset(
-                                          'claude-cli/2.1.280 (external, cli)',
-                                          _claudeCodeUserAgentHeaders,
-                                        ),
-                                child: const Text('Claude Code'),
-                              ),
-                            ],
                           ),
                         ),
                       ),
