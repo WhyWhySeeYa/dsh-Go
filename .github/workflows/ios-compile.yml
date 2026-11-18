@@ -5,14 +5,8 @@
 name: iOS compile
 
 on:
-  push:
-    branches: [main, 'feat/ios-**', 'ios/**']
-    paths:
-      - 'app/**'
-      - 'packages/**'
-      - 'tooling/ios/**'
-      - 'runtime/**'
-      - '.github/workflows/ios-compile.yml'
+  # 不再随 push 自动编：每次 push 都编一遍会和 iOS release 里的同一套构建重复，
+  # 白占两台 macOS runner。需要时手动 Run workflow，release 也会复用本工作流。
   workflow_dispatch:
     inputs:
       regression_only:
