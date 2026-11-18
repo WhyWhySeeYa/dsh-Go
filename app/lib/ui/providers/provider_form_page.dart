@@ -4,7 +4,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
@@ -57,27 +56,6 @@ class _HeaderDraft {
   String name;
   String value;
 }
-
-/// One-tap client identities for relays that gate on the User-Agent. The
-/// values mirror the real clients; the fingerprint headers cover relays that
-/// check more than the UA alone.
-const Map<String, String> _codexUserAgentHeaders = {
-  'originator': 'codex_cli_rs',
-  'version': '0.159.0',
-};
-
-const Map<String, String> _claudeCodeUserAgentHeaders = {
-  'X-Stainless-Lang': 'js',
-  'X-Stainless-Package-Version': '0.106.0',
-  'X-Stainless-OS': 'Linux',
-  'X-Stainless-Arch': 'arm64',
-  'X-Stainless-Runtime': 'node',
-  'X-Stainless-Runtime-Version': 'v24.18.0',
-  'X-Stainless-Retry-Count': '0',
-  'X-Stainless-Timeout': '600',
-  'X-App': 'cli',
-  'Anthropic-Dangerous-Direct-Browser-Access': 'true',
-};
 
 class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldPaste<ProviderFormPage> {
   late final _name = TextEditingController(text: widget.existing?.displayName ?? '');
@@ -159,34 +137,6 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
         if (header.name.trim().isNotEmpty) (header.locked ? header.name : header.name.trim()): header.value,
     }, _userAgent.text);
     return mapEquals(headers, _editing?.headers ?? const {}) ? null : headers;
-  }
-
-  /// A UUID-shaped value for the engine-fingerprint headers; the relays only
-  /// require a non-empty, well-formed value.
-  static String _randomUuid() {
-    final random = Random.secure();
-    String hex(int length) =>
-        List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
-    return '${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}';
-  }
-
-  /// Fills the User-Agent field and merges the preset's headers into the rows,
-  /// updating a row with the same name (case-insensitive) instead of adding a
-  /// duplicate.
-  void _applyUserAgentPreset(String userAgent, Map<String, String> headers) {
-    _editHeaders(() {
-      _userAgent.text = userAgent;
-      for (final entry in headers.entries) {
-        final index = _headers.indexWhere(
-          (header) => header.name.trim().toLowerCase() == entry.key.toLowerCase(),
-        );
-        if (index >= 0) {
-          _headers[index].value = entry.value;
-        } else {
-          _headers.add(_HeaderDraft(entry.key, entry.value));
-        }
-      }
-    });
   }
 
   void _editHeaders(VoidCallback edit) => setState(() {
@@ -525,61 +475,6 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                   open: _headersOpen,
                   child: FormFieldGroup(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: PopupMenuButton<String>(
-                          key: const ValueKey('provider-user-agent-presets'),
-                          enabled: !_saving,
-                          onSelected: (value) {
-                            if (value == 'codex') {
-                              _applyUserAgentPreset(
-                                'codex_cli_rs/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
-                                {
-                                  ..._codexUserAgentHeaders,
-                                  'session_id': _randomUuid(),
-                                  'x-codex-window-id': _randomUuid(),
-                                  'x-codex-installation-id': _randomUuid(),
-                                },
-                              );
-                            } else {
-                              _applyUserAgentPreset(
-                                'claude-cli/2.1.280 (external, cli)',
-                                _claudeCodeUserAgentHeaders,
-                              );
-                            }
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: 'codex',
-                              key: ValueKey('provider-user-agent-codex'),
-                              child: Text('Codex CLI'),
-                            ),
-                            PopupMenuItem(
-                              value: 'claude',
-                              key: ValueKey('provider-user-agent-claude'),
-                              child: Text('Claude Code'),
-                            ),
-                          ],
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Theme.of(context).dividerColor),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${l10n.tavernPresets} · Codex CLI / Claude Code',
-                                    style: theme.textTheme.bodyMedium,
-                                  ),
-                                ),
-                                Icon(AppIcons.expand, size: 18, color: colors.textTertiary),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: FormFieldBlock(
