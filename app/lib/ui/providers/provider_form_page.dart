@@ -305,6 +305,34 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     });
   }
 
+  /// A UUID-shaped value for the engine-fingerprint headers; the relays only
+  /// require a non-empty, well-formed value.
+  static String _randomUuid() {
+    final random = Random.secure();
+    String hex(int length) =>
+        List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
+    return '${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}';
+  }
+
+  /// Fills the User-Agent field and merges the preset's headers into the rows,
+  /// updating a row with the same name (case-insensitive) instead of adding a
+  /// duplicate.
+  void _applyUserAgentPreset(String userAgent, Map<String, String> headers) {
+    _editHeaders(() {
+      _userAgent.text = userAgent;
+      for (final entry in headers.entries) {
+        final index = _headers.indexWhere(
+          (header) => header.name.trim().toLowerCase() == entry.key.toLowerCase(),
+        );
+        if (index >= 0) {
+          _headers[index].value = entry.value;
+        } else {
+          _headers.add(_HeaderDraft(entry.key, entry.value));
+        }
+      }
+    });
+  }
+
   void _editHeaders(VoidCallback edit) => setState(() {
     edit();
     _errors = {..._errors}..remove(_F.headers);
