@@ -17,7 +17,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ci:
+    # 与 push 时同一套检查；失败则 compile 不会开始。
+    uses: ./.github/workflows/ci.yml
+
   compile:
+    needs: ci
     uses: ./.github/workflows/ios-compile.yml
     with:
       regression_only: false

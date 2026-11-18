@@ -430,8 +430,7 @@ void main() {
         await _type(tester, 'API Key', 'sk-test');
         await _openHeaders(tester);
         await _addHeader(tester, 'x-opencode-session', 'old-session');
-        await tester.ensureVisible(find.text('获取模型'));
-        await tester.tap(find.text('获取模型'));
+        await _tapVisible(tester, find.text('获取模型'));
         await tester.pump();
         expect(backend.callNames, contains('discover'));
         await tester.enterText(_headerField('value'), 'new-session');

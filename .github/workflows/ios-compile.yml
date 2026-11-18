@@ -148,10 +148,29 @@ jobs:
           python3 -B runtime/tests/ohos/host-core.py --ios --out "$RUNNER_TEMP/host-core-ios"
           python3 -B runtime/tests/ohos/host-core.py --out "$RUNNER_TEMP/host-core-hap"
 
+      - name: Cache the prepared engine
+        id: engine-cache
+        uses: actions/cache@v4
+        with:
+          # engine-work keeps the pinned node/addon downloads; app/ios/Engine is
+          # what the Xcode build consumes. Both are keyed by the runtime sources,
+          # so a patch change invalidates the cache and re-prepares.
+          path: |
+            ${{ github.workspace }}/../engine-work
+            app/ios/Engine
+          key: engine-${{ runner.os }}-${{ hashFiles('runtime/**', 'tooling/ios/prepare-engine.sh', 'app/pubspec.lock') }}
+
       - name: Prepare the engine
         id: prepare
         run: |
           python3 --version
+          # A cache hit still has to report success: later steps gate on
+          # steps.prepare.outcome == 'success'.
+          if [ "${{ steps.engine-cache.outputs.cache-hit }}" = "true" ] && [ -d app/ios/Engine ]; then
+            echo "prepared engine restored from cache"
+            ls -la app/ios/Engine
+            exit 0
+          fi
           log="$(mktemp)"
           if ! bash tooling/ios/prepare-engine.sh 2>&1 | tee "$log"; then
             tail -n 8 "$log" | cut -c1-600 | sed -e 's/%/%25/g' -e 's/^/::error title=prepare-engine::/'
