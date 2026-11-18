@@ -1,3 +1,4 @@
+import AVFoundation
 import ActivityKit
 import BackgroundTasks
 import CoreLocation
@@ -139,11 +140,82 @@ final class ContinuedRun {
 /// Location needs `location` in UIBackgroundModes and an Always authorization;
 /// without it the app behaves exactly as before and the engine pauses when the
 /// system suspends it. Main thread only.
+/// Plays silence while the app is in the background so iOS keeps scheduling the
+/// process (the `audio` background mode is already declared). The session mixes
+/// with others and is never deactivated on stop, so music, voice playback and
+/// recording owned by other roles keep working.
+private final class SilentAudioKeepAlive {
+  private var engine: AVAudioEngine?
+  private var player: AVAudioPlayerNode?
+  private var observer: NSObjectProtocol?
+  private(set) var running = false
+
+  func start() {
+    guard !running else { return }
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+      try session.setActive(true)
+      let engine = AVAudioEngine()
+      let player = AVAudioPlayerNode()
+      engine.attach(player)
+      let format = AVAudioFormat(standardFormatWithSampleRate: 8_000, channels: 1)!
+      engine.connect(player, to: engine.mainMixerNode, format: format)
+      let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 8_000)!
+      buffer.frameLength = 8_000
+      if let channels = buffer.floatChannelData {
+        for channel in 0..<Int(format.channelCount) {
+          memset(channels[channel], 0, Int(buffer.frameLength) * MemoryLayout<Float>.size)
+        }
+      }
+      player.scheduleBuffer(buffer, at: nil, options: .loops)
+      try engine.start()
+      player.play()
+      self.engine = engine
+      self.player = player
+      running = true
+      observeInterruptions()
+    } catch {
+      stop()
+    }
+  }
+
+  func stop() {
+    guard running || engine != nil else { return }
+    running = false
+    player?.stop()
+    engine?.stop()
+    player = nil
+    engine = nil
+    if let observer {
+      NotificationCenter.default.removeObserver(observer)
+    }
+    observer = nil
+    // Never deactivate here: another role (voice, media) may own the session.
+  }
+
+  private func observeInterruptions() {
+    observer = NotificationCenter.default.addObserver(
+      forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+    ) { [weak self] note in
+      guard let self,
+        let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+        AVAudioSession.InterruptionType(rawValue: raw) == .ended
+      else { return }
+      if self.running {
+        self.stop()
+        self.start()
+      }
+    }
+  }
+}
+
 @MainActor
 final class RunBackground: NSObject, CLLocationManagerDelegate {
   static let shared = RunBackground()
 
   private let location = CLLocationManager()
+  private let silentAudio = SilentAudioKeepAlive()
   private var activity: Activity<RunActivityAttributes>?
   private var startedAt = Date()
   private var wanted = false
@@ -155,6 +227,22 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
     location.distanceFilter = 500
     location.pausesLocationUpdatesAutomatically = false
     location.allowsBackgroundLocationUpdates = true
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(willResignActive), name: UIApplication.willResignActiveNotification,
+      object: nil)
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(didBecomeActive), name: UIApplication.didBecomeActiveNotification,
+      object: nil)
+  }
+
+  /// Silence only matters once the app is leaving the foreground; starting it
+  /// earlier would hold an audio session during ordinary foreground chats.
+  @objc private func willResignActive() {
+    if wanted { silentAudio.start() }
+  }
+
+  @objc private func didBecomeActive() {
+    silentAudio.stop()
   }
 
   /// Called whenever the engine's turn state changes.
@@ -167,6 +255,7 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
       startActivity()
     } else {
       stopLocation()
+      silentAudio.stop()
       endActivity()
     }
   }
