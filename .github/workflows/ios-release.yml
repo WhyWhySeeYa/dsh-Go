@@ -28,6 +28,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # gh release create shells out to git; without a checkout it dies with
+      # "fatal: not a git repository" after the asset was already downloaded.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: actions/download-artifact@v4
         with:
           name: ios-unsigned-ipa
@@ -41,7 +46,7 @@ jobs:
           ls -lh out
           tag="${INPUT_TAG:-build-${GITHUB_RUN_NUMBER}}"
           notes="Unsigned iOS build from ${GITHUB_SHA} on $(date -u +%Y-%m-%dT%H:%M:%SZ). Sign it before installing."
-          gh release create "$tag" out/dsh-go-ios.ipa \
+          gh release create "$tag" out/dsh-go-ios.ipa --repo "$GITHUB_REPOSITORY" \
             --title "dsh-Go iOS $tag" \
             --notes "$notes" \
             --prerelease \
