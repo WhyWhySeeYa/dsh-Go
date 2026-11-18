@@ -81,15 +81,28 @@ jobs:
             app/ios/Runner/IOSPhoneCoreDevice.swift app/ios/Runner/IOSPhoneScreen.swift \
             app/ios/Runner/IOSPhoneRPCDispatch.swift app/ios/PhoneRunner/PhoneRunnerObservation.swift
 
+      - name: Cache the Flutter SDK
+        id: flutter-sdk
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/flutter
+          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ env.FLUTTER_SHA256 }}
       - name: Install Flutter
+        if: steps.flutter-sdk.outputs.cache-hit != 'true'
         run: |
           archive="flutter_macos_arm64_${FLUTTER_VERSION}-stable.zip"
           curl -fsSL -o "$RUNNER_TEMP/$archive" \
             "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/$archive"
           echo "$FLUTTER_SHA256  $RUNNER_TEMP/$archive" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/$archive" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Put Flutter on PATH
+        run: echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('app/pubspec.lock', 'packages/dsh_client/pubspec.lock', 'packages/dsh_remote/pubspec.lock') }}
       - name: Resolve dependencies
         run: |
           flutter --version
@@ -352,15 +365,27 @@ jobs:
           node="$(ls -d "$DSH_IOS_ENGINE_WORK"/node-v*-darwin-arm64/bin/node)"
           "$node" tooling/ios/engine-smoke/env-probe.mjs --simulator "$DSH_SIMULATOR" --smoke "$RUNNER_TEMP/image-smoke" --frameworks "$RUNNER_TEMP/sim" --runtime "$RUNNER_TEMP/tree/files" --work "$RUNNER_TEMP/env-probe-work" || echo "::warning title=node env::the probe itself failed"
 
+      - name: Cache the Flutter SDK
+        id: flutter-sdk
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/flutter
+          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ env.FLUTTER_SHA256 }}
       - name: Install Flutter
-        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' && steps.flutter-sdk.outputs.cache-hit != 'true' }}
         run: |
           archive="flutter_macos_arm64_${FLUTTER_VERSION}-stable.zip"
           curl -fsSL -o "$RUNNER_TEMP/$archive"             "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/$archive"
           echo "$FLUTTER_SHA256  $RUNNER_TEMP/$archive" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/$archive" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Put Flutter on PATH
+        run: echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('app/pubspec.lock', 'packages/dsh_client/pubspec.lock', 'packages/dsh_remote/pubspec.lock') }}
       - name: Resolve dependencies
         if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
         run: |
