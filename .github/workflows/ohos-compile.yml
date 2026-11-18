@@ -7,13 +7,7 @@ name: OHOS compile
 # On main it runs after a merge, not on pull requests, so no PR waits for the macOS runner;
 # a change to the shared app that breaks the HarmonyOS build shows up on main's run.
 on:
-  push:
-    branches: [main, 'claude/harmonyos-ohos', 'ohos/**']
-    paths:
-      - 'app/**'
-      - 'packages/**'
-      - 'tooling/ohos/**'
-      - '.github/workflows/ohos-compile.yml'
+  # 旁支验证：只在需要时手动触发，避免每次 push 抢占 macOS runner。
   workflow_dispatch:
 
 permissions:
