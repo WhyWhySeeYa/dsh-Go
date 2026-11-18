@@ -423,6 +423,34 @@ void main() {
       expect(find.byKey(const ValueKey('provider-headers-json')), findsOneWidget);
     });
 
+    testWidgets('the preset chooser fills the user-agent and its headers', (tester) async {
+      final backend = FakeProviderBackend(profiles: const [_headerProfile]);
+      await _open(tester, backend, existing: CustomProvider.fromProfile(_headerProfile));
+      await _openHeaders(tester);
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-presets')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('provider-user-agent-codex')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
+        startsWith('codex_cli_rs/'),
+      );
+      await _tapVisible(tester, find.text('获取模型'));
+      final headers = backend.calls.last.$2['headers'] as Map;
+      expect(headers['originator'], 'codex_cli_rs');
+      expect(headers['x-codex-window-id'], isNotEmpty);
+    });
+
+    testWidgets('the /v1 switch appends the suffix to discovery', (tester) async {
+      final backend = FakeProviderBackend(profiles: const []);
+      await _open(tester, backend);
+      await _type(tester, 'Base URL', 'https://gw.example.com');
+      await _type(tester, 'API Key', 'sk-test');
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-append-v1')));
+      await _tapVisible(tester, find.text('获取模型'));
+      expect(backend.calls.last.$2['baseURL'], 'https://gw.example.com/v1');
+    });
+
     for (final failure in [false, true]) {
       testWidgets('late discovery ${failure ? 'failure' : 'success'} belongs to the header snapshot', (tester) async {
         final backend = _DelayedDiscovery();

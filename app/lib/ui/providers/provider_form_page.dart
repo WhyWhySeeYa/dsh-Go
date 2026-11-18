@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
@@ -57,9 +58,33 @@ class _HeaderDraft {
   String value;
 }
 
+/// One-tap client identities for relays that gate on the User-Agent. The
+/// values mirror the real clients; the fingerprint headers cover relays that
+/// check more than the UA alone.
+const Map<String, String> _codexUserAgentHeaders = {
+  'originator': 'codex_cli_rs',
+  'version': '0.159.0',
+};
+
+const Map<String, String> _claudeCodeUserAgentHeaders = {
+  'X-Stainless-Lang': 'js',
+  'X-Stainless-Package-Version': '0.106.0',
+  'X-Stainless-OS': 'Linux',
+  'X-Stainless-Arch': 'arm64',
+  'X-Stainless-Runtime': 'node',
+  'X-Stainless-Runtime-Version': 'v24.18.0',
+  'X-Stainless-Retry-Count': '0',
+  'X-Stainless-Timeout': '600',
+  'X-App': 'cli',
+  'Anthropic-Dangerous-Direct-Browser-Access': 'true',
+};
+
 class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldPaste<ProviderFormPage> {
   late final _name = TextEditingController(text: widget.existing?.displayName ?? '');
-  late final _baseUrl = TextEditingController(text: widget.existing?.baseUrl ?? '');
+  late final _baseUrl = TextEditingController(text: _withoutV1(widget.existing?.baseUrl ?? ''));
+  /// Whether the saved and discovered URL carries a trailing `/v1`. The field
+  /// itself shows the root, so the suffix is not typed twice.
+  late bool _appendV1 = _endsWithV1(widget.existing?.baseUrl ?? '');
   final _key = TextEditingController();
   late ProviderApi _api = widget.existing?.api ?? ProviderApi.openaiCompletions;
   late List<ProviderModelSpec> _models = [...?widget.existing?.models];
@@ -96,6 +121,19 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
 
   final _fieldKeys = {for (final f in _F.values) f: GlobalKey()};
 
+
+  static bool _endsWithV1(String url) => url.replaceAll(RegExp(r'/+$'), '').endsWith('/v1');
+
+  static String _withoutV1(String url) {
+    final trimmed = url.replaceAll(RegExp(r'/+$'), '');
+    return trimmed.endsWith('/v1') ? trimmed.substring(0, trimmed.length - 3) : trimmed;
+  }
+
+  String _withV1(String url) {
+    final trimmed = url.replaceAll(RegExp(r'/+$'), '');
+    if (!_appendV1 || trimmed.endsWith('/v1')) return trimmed;
+    return '$trimmed/v1';
+  }
   bool get _isEdit => _editing != null;
 
   /// A stored base is authoritative until its address or protocol is edited.
@@ -249,6 +287,34 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     }
   }
 
+  /// A UUID-shaped value for the engine-fingerprint headers; the relays only
+  /// require a non-empty, well-formed value.
+  static String _randomUuid() {
+    final random = Random.secure();
+    String hex(int length) =>
+        List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
+    return '${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}';
+  }
+
+  /// Fills the User-Agent field and merges the preset's headers into the rows,
+  /// updating a row with the same name (case-insensitive) instead of adding a
+  /// duplicate.
+  void _applyUserAgentPreset(String userAgent, Map<String, String> headers) {
+    _editHeaders(() {
+      _userAgent.text = userAgent;
+      for (final entry in headers.entries) {
+        final index = _headers.indexWhere(
+          (header) => header.name.trim().toLowerCase() == entry.key.toLowerCase(),
+        );
+        if (index >= 0) {
+          _headers[index].value = entry.value;
+        } else {
+          _headers.add(_HeaderDraft(entry.key, entry.value));
+        }
+      }
+    });
+  }
+
   void _editHeaders(VoidCallback edit) => setState(() {
     edit();
     _errors = {..._errors}..remove(_F.headers);
@@ -349,7 +415,7 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     final expectedHeaders = _headersSignature();
     final headers = _headersForRequest();
     var expectedUrl = _baseUrl.text;
-    final url = _baseUrlForRequest(expectedUrl, api);
+    final url = _withV1(_baseUrlForRequest(expectedUrl, api));
     bool isCurrent() =>
         mounted &&
         identical(ref.read(providerBackendProvider), backend) &&
@@ -368,7 +434,7 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
           .discover(api: api, baseUrl: url, apiKey: key, existingId: _editing?.id, headers: headers);
       if (!mounted || !isCurrent()) return;
       if (result.baseUrl != url) {
-        _baseUrl.text = result.baseUrl;
+        _baseUrl.text = _withoutV1(result.baseUrl);
         setState(() => _baseUrlNote = context.l10n.engineProviderCompletedUrl(result.baseUrl));
       }
       // Keep pasted endpoints intact: saving must normalize the original input
@@ -433,7 +499,7 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     final draft = ProviderDraft(
       name: _name.text,
       api: _api,
-      baseUrl: _baseUrlForRequest(_baseUrl.text, _api),
+      baseUrl: _withV1(_baseUrlForRequest(_baseUrl.text, _api)),
       apiKey: key,
       models: _models,
       headers: _headersForRequest(),
@@ -538,9 +604,33 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                           _edited(_F.baseUrl);
                         },
                         decoration: InputDecoration(
-                          hintText: anthropic ? 'https://api.example.com' : 'https://api.example.com/v1',
+                          hintText: anthropic ? 'https://api.example.com' : 'https://api.example.com',
                           error: _errors[_F.baseUrl] == null ? null : const SizedBox.shrink(),
                         ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Switch(
+                            key: const ValueKey('provider-append-v1'),
+                            value: _appendV1,
+                            onChanged: busy
+                                ? null
+                                : (value) {
+                                    setState(() => _appendV1 = value);
+                                    _edited(_F.baseUrl);
+                                  },
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('/v1'),
+                          const SizedBox(width: 6),
+                          Text(
+                            l10n.engineFieldAuto,
+                            style: theme.textTheme.bodySmall?.copyWith(color: colors.textTertiary),
+                          ),
+                        ],
                       ),
                     ),
                     FormFieldBlock(
@@ -585,6 +675,61 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                   open: _headersOpen,
                   child: FormFieldGroup(
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: PopupMenuButton<String>(
+                          key: const ValueKey('provider-user-agent-presets'),
+                          enabled: !_saving,
+                          onSelected: (value) {
+                            if (value == 'codex') {
+                              _applyUserAgentPreset(
+                                'codex_cli_rs/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
+                                {
+                                  ..._codexUserAgentHeaders,
+                                  'session_id': _randomUuid(),
+                                  'x-codex-window-id': _randomUuid(),
+                                  'x-codex-installation-id': _randomUuid(),
+                                },
+                              );
+                            } else {
+                              _applyUserAgentPreset(
+                                'claude-cli/2.1.280 (external, cli)',
+                                _claudeCodeUserAgentHeaders,
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'codex',
+                              key: ValueKey('provider-user-agent-codex'),
+                              child: Text('Codex CLI'),
+                            ),
+                            PopupMenuItem(
+                              value: 'claude',
+                              key: ValueKey('provider-user-agent-claude'),
+                              child: Text('Claude Code'),
+                            ),
+                          ],
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Theme.of(context).dividerColor),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${l10n.tavernPresets} · Codex CLI / Claude Code',
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
+                                ),
+                                Icon(AppIcons.expand, size: 18, color: colors.textTertiary),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: FormFieldBlock(
