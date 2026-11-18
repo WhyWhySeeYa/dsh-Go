@@ -268,6 +268,26 @@ void main() {
       expect(backend.profiles.single.headers, {'x-opencode-session': 'session-1', 'User-Agent': 'channel-agent/1.0'});
     });
 
+    testWidgets('one-tap presets fill the user-agent and its fingerprint headers', (tester) async {
+      final backend = FakeProviderBackend(profiles: const [_headerProfile]);
+      await _open(tester, backend, existing: CustomProvider.fromProfile(_headerProfile));
+      await _openHeaders(tester);
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-codex')));
+      expect(
+        tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
+        startsWith('codex_cli_rs/'),
+      );
+      await _tapVisible(tester, find.text('获取模型'));
+      final headers = backend.calls.last.$2['headers'] as Map;
+      expect(headers['originator'], 'codex_cli_rs');
+      expect(headers['x-codex-window-id'], isNotEmpty);
+      await _tapVisible(tester, find.byKey(const ValueKey('provider-user-agent-claude')));
+      expect(
+        tester.widget<TextFormField>(find.byKey(const ValueKey('provider-user-agent'))).controller?.text,
+        startsWith('claude-cli/'),
+      );
+    });
+
     testWidgets('renaming an ordinary header to a reserved name is rejected and remains correctable', (tester) async {
       final backend = FakeProviderBackend(profiles: const [_headerProfile]);
       await _open(tester, backend, existing: CustomProvider.fromProfile(_headerProfile));

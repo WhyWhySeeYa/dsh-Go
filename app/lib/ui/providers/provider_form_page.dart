@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
@@ -56,6 +57,27 @@ class _HeaderDraft {
   String name;
   String value;
 }
+
+/// One-tap client identities for relays that gate on the User-Agent. The
+/// values mirror the real clients; the fingerprint headers cover relays that
+/// check more than the UA alone.
+const Map<String, String> _codexUserAgentHeaders = {
+  'originator': 'codex_cli_rs',
+  'version': '0.159.0',
+};
+
+const Map<String, String> _claudeCodeUserAgentHeaders = {
+  'X-Stainless-Lang': 'js',
+  'X-Stainless-Package-Version': '0.106.0',
+  'X-Stainless-OS': 'Linux',
+  'X-Stainless-Arch': 'arm64',
+  'X-Stainless-Runtime': 'node',
+  'X-Stainless-Runtime-Version': 'v24.18.0',
+  'X-Stainless-Retry-Count': '0',
+  'X-Stainless-Timeout': '600',
+  'X-App': 'cli',
+  'Anthropic-Dangerous-Direct-Browser-Access': 'true',
+};
 
 class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldPaste<ProviderFormPage> {
   late final _name = TextEditingController(text: widget.existing?.displayName ?? '');
@@ -137,6 +159,34 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
         if (header.name.trim().isNotEmpty) (header.locked ? header.name : header.name.trim()): header.value,
     }, _userAgent.text);
     return mapEquals(headers, _editing?.headers ?? const {}) ? null : headers;
+  }
+
+  /// A UUID-shaped value for the engine-fingerprint headers; the relays only
+  /// require a non-empty, well-formed value.
+  static String _randomUuid() {
+    final random = Random.secure();
+    String hex(int length) =>
+        List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
+    return '${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}';
+  }
+
+  /// Fills the User-Agent field and merges the preset's headers into the rows,
+  /// updating a row with the same name (case-insensitive) instead of adding a
+  /// duplicate.
+  void _applyUserAgentPreset(String userAgent, Map<String, String> headers) {
+    _editHeaders(() {
+      _userAgent.text = userAgent;
+      for (final entry in headers.entries) {
+        final index = _headers.indexWhere(
+          (header) => header.name.trim().toLowerCase() == entry.key.toLowerCase(),
+        );
+        if (index >= 0) {
+          _headers[index].value = entry.value;
+        } else {
+          _headers.add(_HeaderDraft(entry.key, entry.value));
+        }
+      }
+    });
   }
 
   void _editHeaders(VoidCallback edit) => setState(() {
@@ -488,6 +538,43 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                             textInputAction: TextInputAction.next,
                             onChanged: (_) => _editHeaders(() {}),
                             decoration: InputDecoration(hintText: l10n.commonDefault),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton(
+                                key: const ValueKey('provider-user-agent-codex'),
+                                onPressed: _saving
+                                    ? null
+                                    : () => _applyUserAgentPreset(
+                                          'codex_cli_rs/0.159.0 (Ubuntu 22.4.0; x86_64) xterm-256color',
+                                          {
+                                            ..._codexUserAgentHeaders,
+                                            'session_id': _randomUuid(),
+                                            'x-codex-window-id': _randomUuid(),
+                                            'x-codex-installation-id': _randomUuid(),
+                                          },
+                                        ),
+                                child: const Text('Codex CLI'),
+                              ),
+                              OutlinedButton(
+                                key: const ValueKey('provider-user-agent-claude'),
+                                onPressed: _saving
+                                    ? null
+                                    : () => _applyUserAgentPreset(
+                                          'claude-cli/2.1.280 (external, cli)',
+                                          _claudeCodeUserAgentHeaders,
+                                        ),
+                                child: const Text('Claude Code'),
+                              ),
+                            ],
                           ),
                         ),
                       ),
