@@ -441,16 +441,6 @@ void main() {
       expect(headers['x-codex-window-id'], isNotEmpty);
     });
 
-    testWidgets('the /v1 switch appends the suffix to discovery', (tester) async {
-      final backend = FakeProviderBackend(profiles: const []);
-      await _open(tester, backend);
-      await _type(tester, 'Base URL', 'https://gw.example.com');
-      await _type(tester, 'API Key', 'sk-test');
-      await _tapVisible(tester, find.byKey(const ValueKey('provider-append-v1')));
-      await _tapVisible(tester, find.text('获取模型'));
-      expect(backend.calls.last.$2['baseURL'], 'https://gw.example.com/v1');
-    });
-
     for (final failure in [false, true]) {
       testWidgets('late discovery ${failure ? 'failure' : 'success'} belongs to the header snapshot', (tester) async {
         final backend = _DelayedDiscovery();
@@ -551,7 +541,7 @@ void main() {
     testWidgets('the protocol switches the Base URL placeholder; no helper lines', (tester) async {
       await _open(tester, FakeProviderBackend());
       String? hint() => tester.widget<TextField>(_field('Base URL')).decoration!.hintText;
-      expect(hint(), 'https://api.example.com');
+      expect(hint(), 'https://api.example.com/v1');
       await tester.tap(find.text('Anthropic'));
       await settle(tester);
       expect(hint(), 'https://api.example.com');
@@ -663,11 +653,7 @@ void main() {
       final keyLabel = tester.getRect(find.text('API Key'));
       expect(note.top, greaterThan(field.bottom));
       expect(note.bottom, lessThan(keyLabel.top));
-      expect(tester.widget<TextField>(_field('Base URL')).controller!.text, 'https://gw.example.com');
-      expect(
-        tester.widget<Switch>(find.byKey(const ValueKey('provider-append-v1'))).value,
-        isTrue,
-      );
+      expect(tester.widget<TextField>(_field('Base URL')).controller!.text, 'https://gw.example.com/v1');
       // Editing the URL again drops it.
       await _type(tester, 'Base URL', 'https://gw.example.com/v2');
       expect(find.textContaining('已补全为'), findsNothing);

@@ -192,11 +192,7 @@ void main() {
     await settle(tester);
     expect(reads, 1);
     expect(tester.widget<TextField>(_field('API Key')).controller!.text, 'sk-g53-pasted');
-    expect(tester.widget<TextField>(_field('Base URL')).controller!.text, 'https://gw.example.com');
-    expect(
-      tester.widget<Switch>(find.byKey(const ValueKey('provider-append-v1'))).value,
-      isTrue,
-    );
+    expect(tester.widget<TextField>(_field('Base URL')).controller!.text, gateway.baseUrl);
     _secretKey(await _capture(tester, 'API Key', 'provider-pasted-key-hidden'), hidden: true);
     await tester.tap(find.text('保存'));
     await settle(tester);

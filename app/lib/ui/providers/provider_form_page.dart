@@ -152,10 +152,7 @@ class _HeadersJsonDialogState extends State<_HeadersJsonDialog> {
 
 class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldPaste<ProviderFormPage> {
   late final _name = TextEditingController(text: widget.existing?.displayName ?? '');
-  late final _baseUrl = TextEditingController(text: _withoutV1(widget.existing?.baseUrl ?? ''));
-  /// Whether the saved and discovered URL carries a trailing `/v1`. The field
-  /// itself shows the root, so the suffix is not typed twice.
-  late bool _appendV1 = _endsWithV1(widget.existing?.baseUrl ?? '');
+  late final _baseUrl = TextEditingController(text: widget.existing?.baseUrl ?? '');
   final _key = TextEditingController();
   late ProviderApi _api = widget.existing?.api ?? ProviderApi.openaiCompletions;
   late List<ProviderModelSpec> _models = [...?widget.existing?.models];
@@ -193,22 +190,6 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
   final _fieldKeys = {for (final f in _F.values) f: GlobalKey()};
 
 
-  static bool _endsWithV1(String url) => url.replaceAll(RegExp(r'/+$'), '').endsWith('/v1');
-
-  static String _withoutV1(String url) {
-    final trimmed = url.replaceAll(RegExp(r'/+$'), '');
-    return trimmed.endsWith('/v1') ? trimmed.substring(0, trimmed.length - 3) : trimmed;
-  }
-
-  String _withV1(String url) {
-    final trimmed = url.replaceAll(RegExp(r'/+$'), '');
-    if (!_appendV1 || trimmed.endsWith('/v1')) return trimmed;
-    // Only a root address gets the suffix: a base that already carries a path
-    // (…/api/v3, …/Tenant) is the endpoint the user means.
-    final path = Uri.tryParse(trimmed)?.path ?? '';
-    if (path.isNotEmpty && path != '/') return trimmed;
-    return '$trimmed/v1';
-  }
   bool get _isEdit => _editing != null;
 
   /// A stored base is authoritative until its address or protocol is edited.
@@ -437,7 +418,7 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     final expectedHeaders = _headersSignature();
     final headers = _headersForRequest();
     var expectedUrl = _baseUrl.text;
-    final url = _withV1(_baseUrlForRequest(expectedUrl, api));
+    final url = _baseUrlForRequest(expectedUrl, api);
     bool isCurrent() =>
         mounted &&
         identical(ref.read(providerBackendProvider), backend) &&
@@ -456,13 +437,8 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
           .discover(api: api, baseUrl: url, apiKey: key, existingId: _editing?.id, headers: headers);
       if (!mounted || !isCurrent()) return;
       if (result.baseUrl != url) {
-        setState(() {
-          // Discovery fell back to /v1: keep the field on the root and let the
-          // switch carry the suffix into the saved profile.
-          _appendV1 = _endsWithV1(result.baseUrl);
-          _baseUrl.text = _withoutV1(result.baseUrl);
-          _baseUrlNote = context.l10n.engineProviderCompletedUrl(result.baseUrl);
-        });
+        _baseUrl.text = result.baseUrl;
+        setState(() => _baseUrlNote = context.l10n.engineProviderCompletedUrl(result.baseUrl));
       }
       // Keep pasted endpoints intact: saving must normalize the original input
       // once, not strip a second suffix from discovery's normalized base.
@@ -526,7 +502,7 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
     final draft = ProviderDraft(
       name: _name.text,
       api: _api,
-      baseUrl: _withV1(_baseUrlForRequest(_baseUrl.text, _api)),
+      baseUrl: _baseUrlForRequest(_baseUrl.text, _api),
       apiKey: key,
       models: _models,
       headers: _headersForRequest(),
@@ -631,33 +607,9 @@ class _ProviderFormPageState extends ConsumerState<ProviderFormPage> with FieldP
                           _edited(_F.baseUrl);
                         },
                         decoration: InputDecoration(
-                          hintText: anthropic ? 'https://api.example.com' : 'https://api.example.com',
+                          hintText: anthropic ? 'https://api.example.com' : 'https://api.example.com/v1',
                           error: _errors[_F.baseUrl] == null ? null : const SizedBox.shrink(),
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          Switch(
-                            key: const ValueKey('provider-append-v1'),
-                            value: _appendV1,
-                            onChanged: busy
-                                ? null
-                                : (value) {
-                                    setState(() => _appendV1 = value);
-                                    _edited(_F.baseUrl);
-                                  },
-                          ),
-                          const SizedBox(width: 8),
-                          const Text('/v1'),
-                          const SizedBox(width: 6),
-                          Text(
-                            l10n.engineFieldAuto,
-                            style: theme.textTheme.bodySmall?.copyWith(color: colors.textTertiary),
-                          ),
-                        ],
                       ),
                     ),
                     FormFieldBlock(
