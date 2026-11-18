@@ -596,7 +596,7 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
         self.phoneTaskRunning = active
         let running = self.localTurnRunning || active
         self.continued.update(running: running)
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
           RunBackground.shared.update(running: running)
         }
       }
@@ -705,7 +705,7 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
             localTurnRunning = running
             let anyRunning = running || phoneTaskRunning
             continued.update(running: anyRunning)
-            if #available(iOS 16.1, *) {
+            if #available(iOS 16.2, *) {
               MainActor.assumeIsolated {
                 RunBackground.shared.update(running: anyRunning)
               }

@@ -4,7 +4,7 @@ import Foundation
 /// One running turn, mirrored into a Live Activity. The app starts and updates
 /// it; the widget extension draws it. Both targets compile this file, so the
 /// attributes type is the same on both sides.
-@available(iOS 16.1, *)
+@available(iOS 16.2, *)
 public struct RunActivityAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
     /// The conversation or task line shown on the Lock Screen.
