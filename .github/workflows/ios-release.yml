@@ -17,12 +17,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    # 与 push 时同一套检查；失败则 compile 不会开始。
-    uses: ./.github/workflows/ci.yml
+  ci-gate:
+    # 等同一提交上的 CI 跑完；CI OK 成功才放行，失败或超时则 compile 不会开始。
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      actions: read
+      checks: read
+    steps:
+      - name: Wait for CI OK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          for i in $(seq 1 70); do
+            state=$(gh api "/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?per_page=100" --jq '[.check_runs[] | select(.name == "CI OK")][0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)
+            echo "attempt $i: CI OK = ${state:-<missing>}"
+            case "$state" in
+              "completed success") echo "CI passed"; exit 0 ;;
+              "completed "*) echo "::error::CI did not pass ($state)"; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "::error::timed out waiting for CI OK"
+          exit 1
 
   compile:
-    needs: ci
+    needs: ci-gate
     uses: ./.github/workflows/ios-compile.yml
     with:
       regression_only: false
