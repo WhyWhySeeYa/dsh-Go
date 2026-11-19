@@ -298,7 +298,7 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
     }
     let attributes = RunActivityAttributes(name: "DSH Go")
     let state = RunActivityAttributes.ContentState(
-      title: String(localized: "Working"),
+      title: "Running",
       detail: String(localized: "This conversation is still going"),
       startedAt: startedAt)
     do {
@@ -316,7 +316,7 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
     guard let activity else { return }
     self.activity = nil
     let state = RunActivityAttributes.ContentState(
-      title: String(localized: "Done"),
+      title: "Done",
       detail: "",
       startedAt: startedAt)
     Task {

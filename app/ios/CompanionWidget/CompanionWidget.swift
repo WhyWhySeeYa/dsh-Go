@@ -117,9 +117,10 @@ struct RunLiveActivityWidget: Widget {
           Text(context.state.title).font(.headline).lineLimit(1)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          Text(context.state.startedAt, style: .timer)
+          Text(timerInterval: context.state.startedAt...Date.distantFuture, countsDown: false)
             .font(.caption)
             .monospacedDigit()
+            .frame(maxWidth: 64)
         }
         DynamicIslandExpandedRegion(.bottom) {
           Text(context.state.detail.isEmpty ? context.attributes.name : context.state.detail)
@@ -130,12 +131,13 @@ struct RunLiveActivityWidget: Widget {
       } compactLeading: {
         Image(systemName: "bolt.fill").foregroundStyle(.tint)
       } compactTrailing: {
-        Text(context.state.startedAt, style: .timer)
-          .font(.caption2)
+        Text(timerInterval: context.state.startedAt...Date.distantFuture, countsDown: false)
           .monospacedDigit()
+          .frame(maxWidth: 44)
       } minimal: {
         Image(systemName: "bolt.fill").foregroundStyle(.tint)
       }
+      .widgetURL(URL(string: "dshgo://open/companion"))
       .keylineTint(.accentColor)
     }
   }
