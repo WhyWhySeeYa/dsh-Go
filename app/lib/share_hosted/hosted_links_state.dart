@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -93,6 +94,11 @@ class HostedLinksController extends Notifier<HostedLinksState> {
   /// Expired links stay listed (as 已过期) this long, then drop off.
   static const keepExpired = Duration(days: 30);
 
+  /// The clock (tests): fixtures carry fixed dates, so the retention window
+  /// must be measured against a fixed now instead of the wall clock.
+  @visibleForTesting
+  static DateTime Function() now = DateTime.now;
+
   final _timers = <String, Timer>{};
   final _cancelled = <String>{};
   final _deleting = <String>{};
@@ -150,7 +156,7 @@ class HostedLinksController extends Notifier<HostedLinksState> {
     try {
       final saved = await ref.read(hostedLinkStoreProvider).load();
       if (!ref.mounted) return false;
-      final cutoff = DateTime.now().subtract(keepExpired);
+      final cutoff = now().subtract(keepExpired);
       final links = [
         for (final l in saved)
           if (l.expiresAt == null || l.expiresAt!.isAfter(cutoff)) l,
@@ -340,7 +346,7 @@ class HostedLinksController extends Notifier<HostedLinksState> {
     if (!ref.mounted) return;
     _canSave = true;
     _plainPersisted.addAll(saved.map((link) => link.id));
-    final cutoff = DateTime.now().subtract(keepExpired);
+    final cutoff = now().subtract(keepExpired);
     final links = [
       for (final l in saved)
         if (l.expiresAt == null || l.expiresAt!.isAfter(cutoff)) l,
