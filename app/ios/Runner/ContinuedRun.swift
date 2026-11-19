@@ -241,12 +241,14 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
   /// It runs whether or not a turn is going, so the engine stays warm.
   @objc private func willResignActive() {
     silentAudio.start()
-    onActiveChanged?(keepAliveActive)
+    Self.activeSnapshot = silentAudio.running
+    Self.onActiveChanged?(Self.activeSnapshot)
   }
 
   @objc private func didBecomeActive() {
     silentAudio.stop()
-    onActiveChanged?(keepAliveActive)
+    Self.activeSnapshot = false
+    Self.onActiveChanged?(false)
   }
 
   /// Whether the keep-alive is holding the app right now (the turn is running).
@@ -256,8 +258,12 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
   var keepAliveActive: Bool { silentAudio.running }
 
   /// Called when the silence starts or stops, so the engine can be told to
-  /// keep running instead of pausing for the background.
-  var onActiveChanged: ((Bool) -> Void)?
+  /// keep running instead of pausing for the background. Nonisolated: the
+  /// engine channel wires it up and reads the snapshot off the main actor.
+  nonisolated(unsafe) static var onActiveChanged: ((Bool) -> Void)?
+
+  /// Mirror of the silence state for nonisolated readers (the status map).
+  nonisolated(unsafe) static var activeSnapshot = false
 
   /// Called whenever the engine's turn state changes.
   func update(running: Bool) {
@@ -270,6 +276,7 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
     } else {
       stopLocation()
       silentAudio.stop()
+      Self.activeSnapshot = silentAudio.running
       endActivity()
     }
   }
