@@ -238,16 +238,26 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
 
   /// Silence only matters once the app is leaving the foreground; starting it
   /// earlier would hold an audio session during ordinary foreground chats.
+  /// It runs whether or not a turn is going, so the engine stays warm.
   @objc private func willResignActive() {
-    if wanted { silentAudio.start() }
+    silentAudio.start()
+    onActiveChanged?(keepAliveActive)
   }
 
   @objc private func didBecomeActive() {
     silentAudio.stop()
+    onActiveChanged?(keepAliveActive)
   }
 
   /// Whether the keep-alive is holding the app right now (the turn is running).
   var isActive: Bool { wanted }
+
+  /// The silence is running: the app stays scheduled even with no turn.
+  var keepAliveActive: Bool { silentAudio.running }
+
+  /// Called when the silence starts or stops, so the engine can be told to
+  /// keep running instead of pausing for the background.
+  var onActiveChanged: ((Bool) -> Void)?
 
   /// Called whenever the engine's turn state changes.
   func update(running: Bool) {

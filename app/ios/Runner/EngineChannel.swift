@@ -551,6 +551,12 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
   private var logs: [[String: Any]] = []
   private var secrets: [String] = []
 
+  /// The silence keep-alive, for the engine's own pause decision.
+  private static var engineKeepAliveActive: Bool {
+    if #available(iOS 16.2, *) { return RunBackground.shared.keepAliveActive }
+    return false
+  }
+
   /// Location/silence keep-alive counts as "continued" for the Dart pause policy.
   private static var backgroundKeepAlive: Bool {
     if #available(iOS 16.2, *) { return RunBackground.shared.isActive }
@@ -558,6 +564,9 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
   }
 
   private var backgroundTask = UIBackgroundTaskIdentifier.invalid
+  /// The iOS 26 continued task's last reported state, so the silence keep-alive
+  /// and it can be combined when telling the engine whether to pause.
+  private var systemContinued = false
   private let continued = ContinuedRun()
   // Main-thread sources: a native phone task may begin before Flutter's new
   // conversation has appeared in its session list.
@@ -591,9 +600,23 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
           self?.endBackgroundTask()
         }
       }
+      systemContinued = running
+      let keepAlive = Self.engineKeepAliveActive
       queue.async {
-        self.lifecycle.observe(continued: running)
+        self.lifecycle.observe(continued: running || keepAlive)
         self.emitStatus()
+      }
+    }
+    if #available(iOS 16.2, *) {
+      // The silence runs for the whole time the app is in the background, so the
+      // engine is told to keep going even when no turn is in flight.
+      RunBackground.shared.onActiveChanged = { [weak self] active in
+        guard let self else { return }
+        let continued = active || self.systemContinued
+        self.queue.async { [weak self] in
+          self?.lifecycle.observe(continued: continued)
+          self?.emitStatus()
+        }
       }
     }
     MainActor.assumeIsolated {
