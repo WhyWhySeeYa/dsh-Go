@@ -551,6 +551,12 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
   private var logs: [[String: Any]] = []
   private var secrets: [String] = []
 
+  /// Location/silence keep-alive counts as "continued" for the Dart pause policy.
+  private static var backgroundKeepAlive: Bool {
+    if #available(iOS 16.2, *) { return RunBackground.shared.isActive }
+    return false
+  }
+
   private var backgroundTask = UIBackgroundTaskIdentifier.invalid
   private let continued = ContinuedRun()
   // Main-thread sources: a native phone task may begin before Flutter's new
@@ -852,7 +858,7 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
       "launchSpawned": nativePhase != "idle",
       "launchFailureReason": launchFailure,
       "tidyingFiles": false,
-      "continuedRun": lifecycle.continued,
+      "continuedRun": lifecycle.continued || Self.backgroundKeepAlive,
       "lifecycle": lifecycle.status(),
     ]
   }

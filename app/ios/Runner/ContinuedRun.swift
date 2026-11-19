@@ -246,6 +246,9 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
     silentAudio.stop()
   }
 
+  /// Whether the keep-alive is holding the app right now (the turn is running).
+  var isActive: Bool { wanted }
+
   /// Called whenever the engine's turn state changes.
   func update(running: Bool) {
     guard running != wanted else { return }
@@ -264,8 +267,10 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
   private func startLocation() {
     switch location.authorizationStatus {
     case .authorizedAlways, .authorizedWhenInUse:
+      print("[RunBackground] location updates started")
       location.startUpdatingLocation()
     case .notDetermined:
+      print("[RunBackground] asking for Always location")
       location.requestAlwaysAuthorization()
     default:
       // Denied or restricted: the Live Activity still runs, the engine pauses.
@@ -287,7 +292,10 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
   }
 
   private func startActivity() {
-    guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+      print("[RunBackground] live activities disabled")
+      return
+    }
     let attributes = RunActivityAttributes(name: "DSH Go")
     let state = RunActivityAttributes.ContentState(
       title: String(localized: "Working"),
@@ -299,6 +307,7 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
         content: .init(state: state, staleDate: nil),
         pushType: nil)
     } catch {
+      print("[RunBackground] activity request failed: \(error)")
       activity = nil
     }
   }
