@@ -25,9 +25,6 @@ import 'hosted_links_state_test.dart' show MemoryStore;
 
 final _now = DateTime(2026, 10, 25, 12);
 
-setUp(() => HostedLinksController.now = () => _now);
-tearDown(() => HostedLinksController.now = DateTime.now);
-
 HostedLink _link(String id, String title, {DateTime? expires, HostedTtl ttl = HostedTtl.month}) => HostedLink(
   id: id,
   // Fixed keys: the goldens don't show them, but keep runs identical.
@@ -76,6 +73,9 @@ Future<(FakeHost, MemoryStore)> _pump(
 }
 
 void main() {
+  setUp(() => HostedLinksController.now = () => _now);
+  tearDown(() => HostedLinksController.now = DateTime.now);
+
   for (final english in [false, true]) {
     testWidgets('read retry and failed delete are visible (${english ? "en" : "zh"})', (tester) async {
       if (english) useEnglish();
