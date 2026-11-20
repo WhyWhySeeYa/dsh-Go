@@ -41,7 +41,11 @@ final class ContinuedRun {
   /// at the foreground-to-background boundary so an ordinary foreground chat
   /// does not leave an always-on progress card above the conversation.
   @objc private func willResignActive() {
-    if wanted { submit() }
+    // The location/silence keep-alive and our own Live Activity replaced this
+    // card: the system one shows no status and does not expand, and it competes
+    // with the activity we draw. Keep the class for the iOS 26 path, but stop
+    // submitting it.
+    _ = wanted
   }
 
   @objc private func becameActive() {
