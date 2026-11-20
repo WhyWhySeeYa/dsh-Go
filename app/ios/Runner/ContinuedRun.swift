@@ -3,6 +3,7 @@ import ActivityKit
 import BackgroundTasks
 import CoreLocation
 import UIKit
+import UserNotifications
 
 /// Keeps a turn the user started going after they leave the app, where the system allows it:
 /// iOS 26 and later, while it isn't short of resources. The system shows its own progress card
@@ -327,9 +328,24 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
         attributes: attributes,
         content: .init(state: state, staleDate: nil),
         pushType: nil)
+      RunBackground.notify("LiveActivity started", "id=\(activity?.id ?? "-")")
     } catch {
       print("[RunBackground] activity request failed: \(error)")
+      RunBackground.notify("LiveActivity failed", "\(error.localizedDescription)")
       activity = nil
+    }
+  }
+
+  /// Temporary diagnostic: a local notification says whether the activity was
+  /// accepted, so a device without a Mac can report it.
+  private static func notify(_ title: String, _ body: String) {
+    let center = UNUserNotificationCenter.current()
+    center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+      guard granted else { return }
+      let content = UNMutableNotificationContent()
+      content.title = title
+      content.body = body
+      center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
   }
 
