@@ -326,7 +326,7 @@ final class RunBackground: NSObject, CLLocationManagerDelegate {
     do {
       activity = try Activity.request(
         attributes: attributes,
-        content: .init(state: state, staleDate: nil),
+        content: .init(state: state, staleDate: nil, relevanceScore: 100),
         pushType: nil)
       RunBackground.notify("LiveActivity started", "id=\(activity?.id ?? "-")")
     } catch {

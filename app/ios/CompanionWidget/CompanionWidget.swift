@@ -147,6 +147,8 @@ struct RunLiveActivityWidget: Widget {
 struct DSHCompanionWidgetBundle: WidgetBundle {
   var body: some Widget {
     DSHCompanionWidget()
-    RunLiveActivityWidget()
+    if #available(iOSApplicationExtension 16.2, *) {
+      RunLiveActivityWidget()
+    }
   }
 }
