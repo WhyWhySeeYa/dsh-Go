@@ -107,7 +107,6 @@ private final class FileSelection {
 
   /// Where this selection's copies of photos are.
   var folder: URL?
-  var loads: [Progress] = []
 
   init(owner: String, budget: FileBudget) {
     self.owner = owner
@@ -331,9 +330,11 @@ final class NativeFilesChannel: NSObject, PHPickerViewControllerDelegate, UIDocu
       let name = provider.suggestedName
       let kind = provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) ? UTType.image : UTType.movie
       group.enter()
-      let load = provider.loadFileRepresentation(forTypeIdentifier: kind.identifier) { url, _ in
+      _ = provider.loadFileRepresentation(forTypeIdentifier: kind.identifier) { url, _ in
         defer { group.leave() }
-        guard let url else { return }
+        // A revoke marks the selection inactive; copying after that would recreate
+        // the folder revoke() removed.
+        guard let url, picked.active else { return }
         do {
           let copy = try Self.copyPhoto(url, suggested: name, into: folder, limit: budget.maxBytes)
           copies.add(copy, at: index)
@@ -341,7 +342,6 @@ final class NativeFilesChannel: NSObject, PHPickerViewControllerDelegate, UIDocu
           copies.markTooLarge()
         } catch {}
       }
-      picked.loads.append(load)
     }
     group.notify(queue: .main) { [weak self] in
       self?.photosCopied(copies, expected: results.count, for: picked)
@@ -475,7 +475,10 @@ final class NativeFilesChannel: NSObject, PHPickerViewControllerDelegate, UIDocu
       selection = nil
       picked.active = false
       picked.coordinator.cancel()
-      picked.loads.forEach { $0.cancel() }
+      // The picker's loads are deliberately left alone: on iOS 16.6 cancelling one
+      // makes PUPhotosFileProviderItemProvider leave its dispatch group twice and
+      // libdispatch aborts the app ("Unbalanced call to dispatch_group_leave()").
+      // Their callbacks check `active` and photosCopied() removes the folder.
       closing = true
       io.async {
         for file in picked.files {
