@@ -88,9 +88,7 @@ struct RunLiveActivityWidget: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: RunActivityAttributes.self) { context in
       HStack(spacing: 12) {
-        Image(systemName: "bolt.fill")
-          .font(.title3)
-          .foregroundStyle(.tint)
+        Image("IslandIcon120").resizable().scaledToFit().frame(width: 26, height: 26)
         VStack(alignment: .leading, spacing: 2) {
           Text(context.state.title).font(.headline).lineLimit(1)
           if !context.state.detail.isEmpty {
@@ -111,7 +109,7 @@ struct RunLiveActivityWidget: Widget {
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          Image(systemName: "bolt.fill").foregroundStyle(.tint)
+          Image("IslandIcon120").resizable().scaledToFit().frame(width: 20, height: 20)
         }
         DynamicIslandExpandedRegion(.center) {
           Text(context.state.title).font(.headline).lineLimit(1)
@@ -129,13 +127,13 @@ struct RunLiveActivityWidget: Widget {
             .lineLimit(1)
         }
       } compactLeading: {
-        Image(systemName: "bolt.fill").foregroundStyle(.tint)
+        Image("IslandIcon120").resizable().scaledToFit().frame(width: 20, height: 20)
       } compactTrailing: {
         Text(timerInterval: context.state.startedAt...Date.distantFuture, countsDown: false)
           .monospacedDigit()
           .frame(maxWidth: 44)
       } minimal: {
-        Image(systemName: "bolt.fill").foregroundStyle(.tint)
+        Image("IslandIcon120").resizable().scaledToFit().frame(width: 16, height: 16)
       }
       .widgetURL(URL(string: "dshgo://open/companion"))
       .keylineTint(.accentColor)

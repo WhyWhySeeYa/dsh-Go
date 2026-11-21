@@ -65,6 +65,7 @@
 		D5480000000000000000C061 /* ContinuedRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000C060 /* ContinuedRun.swift */; };
 		D55400000000000000000002 /* RunActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55400000000000000000001 /* RunActivityAttributes.swift */; };
 		D55400000000000000000003 /* RunActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55400000000000000000001 /* RunActivityAttributes.swift */; };
+		D55500000000000000000002 /* IslandIcon120.png in Resources */ = {isa = PBXBuildFile; fileRef = D55500000000000000000001 /* IslandIcon120.png */; };
 		D5480000000000000000C051 /* SiriIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000C050 /* SiriIntents.swift */; };
 		D5480000000000000000C041 /* IOSPhoneActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000C040 /* IOSPhoneActions.swift */; };
 		D5480000000000000000C043 /* IOSPhoneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5480000000000000000C042 /* IOSPhoneBridge.swift */; };
@@ -230,6 +231,7 @@
 		D5480000000000000000C070 /* IOSBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSBrowser.swift; sourceTree = "<group>"; };
 		D5480000000000000000C060 /* ContinuedRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuedRun.swift; sourceTree = "<group>"; };
 		D55400000000000000000001 /* RunActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunActivityAttributes.swift; sourceTree = "<group>"; };
+		D55500000000000000000001 /* IslandIcon120.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = IslandIcon120.png; sourceTree = "<group>"; };
 		D5480000000000000000C050 /* SiriIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntents.swift; sourceTree = "<group>"; };
 		D5480000000000000000C040 /* IOSPhoneActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSPhoneActions.swift; sourceTree = "<group>"; };
 		D5480000000000000000C042 /* IOSPhoneBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSPhoneBridge.swift; sourceTree = "<group>"; };
@@ -502,6 +504,7 @@
 				D55100000000000000000007,
 				D55100000000000000000001,
 				D55100000000000000000002,
+				D55500000000000000000001 /* IslandIcon120.png */,
 				D55100000000000000000005,
 				D55100000000000000000006,
 			);
@@ -684,6 +687,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D55500000000000000000002 /* IslandIcon120.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
