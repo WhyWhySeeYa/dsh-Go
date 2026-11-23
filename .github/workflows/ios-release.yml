@@ -1,0 +1,75 @@
+# 复用上游的 iOS compile 无签名构建，CI 通过后把 IPA 发到 GitHub Release。
+name: iOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (empty = build-<run_number>)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-gate:
+    # 等同一提交上的 CI 跑完；CI OK 成功才放行。
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      actions: read
+      checks: read
+    steps:
+      - name: Wait for CI OK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          for i in $(seq 1 70); do
+            state=$(gh api "/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?per_page=100" --jq '[.check_runs[] | select(.name == "CI OK")][0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)
+            echo "attempt $i: CI OK = ${state:-<missing>}"
+            case "$state" in
+              "completed success") echo "CI passed"; exit 0 ;;
+              "completed "*) echo "::error::CI did not pass ($state)"; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "::error::timed out waiting for CI OK"
+          exit 1
+
+  compile:
+    needs: ci-gate
+    uses: ./.github/workflows/ios-compile.yml
+    with:
+      regression_only: false
+
+  release:
+    needs: compile
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: out
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -e
+          ls -lh out
+          tag="${INPUT_TAG:-build-${GITHUB_RUN_NUMBER}}"
+          mv out/DSH-Go-unsigned.ipa out/dsh-go-ios.ipa
+          notes="Unsigned iOS build from ${GITHUB_SHA} on $(date -u +%Y-%m-%dT%H:%M:%SZ). Sign before installing."
+          gh release create "$tag" out/dsh-go-ios.ipa --repo "$GITHUB_REPOSITORY" \
+            --title "dsh-Go iOS $tag" --notes "$notes" --prerelease --target "$GITHUB_SHA"
