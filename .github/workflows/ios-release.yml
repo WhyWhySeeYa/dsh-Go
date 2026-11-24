@@ -1,4 +1,6 @@
 # 复用上游的 iOS compile 无签名构建，CI 通过后把 IPA 发到 GitHub Release。
+# Release 的标题与说明写「本次构建包含的改动」，用 .github/upstream-sha 与上一个
+# Release 记录的同步点做比较，列出上游区间内的提交。
 name: iOS release
 
 on:
@@ -56,20 +58,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: ios-unsigned-ipa
           path: out
+      - name: Compose what this build contains
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cur=$(cat .github/upstream-sha 2>/dev/null | tr -d '\n' || true)
+          prev_tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          prev=""
+          if [ -n "$prev_tag" ]; then
+            prev=$(git show "$prev_tag:.github/upstream-sha" 2>/dev/null | tr -d '\n' || true)
+          fi
+          : > notes.md
+          if [ -n "$cur" ] && [ -n "$prev" ] && [ "$prev" != "$cur" ]; then
+            gh api "repos/ccch1mneyyy/dsh-Go/compare/$prev...$cur" \
+              --jq '.commits[] | "- " + (.commit.message | split("\n")[0])' >> notes.md || true
+          fi
+          if [ ! -s notes.md ] && [ -n "$cur" ]; then
+            gh api "repos/ccch1mneyyy/dsh-Go/commits?per_page=25" \
+              --jq '.[] | "- " + (.commit.message | split("\n")[0])' >> notes.md || true
+          fi
+          if [ ! -s notes.md ]; then
+            echo "- 同步上游最新代码" > notes.md
+          fi
+          count=$(grep -c '^- ' notes.md || true)
+          first=$(head -1 notes.md | sed 's/^- //')
+          if [ "${count:-0}" -gt 1 ]; then
+            title="dsh-Go iOS：$count 项改动（$first）"
+          else
+            title="dsh-Go iOS：$first"
+          fi
+          {
+            echo "## 本次构建包含的改动"
+            echo
+            cat notes.md
+            echo
+            echo "---"
+            echo "编译提交：\`$GITHUB_SHA\`"
+            echo "构建时间：$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "未签名 IPA：需自行签名（ldid / AltStore / Sideloadly），保留 App Group entitlements。"
+          } > body.md
+          echo "title=$title" >> "$GITHUB_OUTPUT"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_TAG: ${{ inputs.tag }}
+          TITLE: ${{ steps.notes.outputs.title }}
         run: |
           set -e
-          ls -lh out
           tag="${INPUT_TAG:-build-${GITHUB_RUN_NUMBER}}"
           mv out/DSH-Go-unsigned.ipa out/dsh-go-ios.ipa
-          notes="Unsigned iOS build from ${GITHUB_SHA} on $(date -u +%Y-%m-%dT%H:%M:%SZ). Sign before installing."
           gh release create "$tag" out/dsh-go-ios.ipa --repo "$GITHUB_REPOSITORY" \
-            --title "dsh-Go iOS $tag" --notes "$notes" --prerelease --target "$GITHUB_SHA"
+            --title "$TITLE" --notes-file body.md --prerelease --target "$GITHUB_SHA"
