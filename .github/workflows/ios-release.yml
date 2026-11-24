@@ -76,13 +76,16 @@ jobs:
             prev=$(git show "$prev_tag:.github/upstream-sha" 2>/dev/null | tr -d '\n' || true)
           fi
           : > notes.md
+          # Merge commits say nothing about the change; keep the real subjects.
           if [ -n "$cur" ] && [ -n "$prev" ] && [ "$prev" != "$cur" ]; then
             gh api "repos/ccch1mneyyy/dsh-Go/compare/$prev...$cur" \
-              --jq '.commits[] | "- " + (.commit.message | split("\n")[0])' >> notes.md || true
+              --jq '.commits[] | "- " + (.commit.message | split("\n")[0])' \
+              | grep -v '^- Merge ' >> notes.md || true
           fi
           if [ ! -s notes.md ] && [ -n "$cur" ]; then
-            gh api "repos/ccch1mneyyy/dsh-Go/commits?per_page=25" \
-              --jq '.[] | "- " + (.commit.message | split("\n")[0])' >> notes.md || true
+            gh api "repos/ccch1mneyyy/dsh-Go/commits?per_page=30" \
+              --jq '.[] | "- " + (.commit.message | split("\n")[0])' \
+              | grep -v '^- Merge ' >> notes.md || true
           fi
           if [ ! -s notes.md ]; then
             echo "- 同步上游最新代码" > notes.md
