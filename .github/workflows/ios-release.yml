@@ -10,6 +10,10 @@ on:
         description: Release tag (empty = build-<run_number>)
         required: false
         type: string
+      skip_ci_gate:
+        description: Build even when CI is red (the gate still runs, but only reports)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -27,7 +31,11 @@ jobs:
       actions: read
       checks: read
     steps:
+      - name: CI gate skipped
+        if: ${{ inputs.skip_ci_gate }}
+        run: echo "::warning::CI gate skipped for this build"
       - name: Wait for CI OK
+        if: ${{ !inputs.skip_ci_gate }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
